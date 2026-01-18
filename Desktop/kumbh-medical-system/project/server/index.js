@@ -30,6 +30,21 @@ app.use('/api/incidents', incidentRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/weather', weatherRoutes);
 
+// SERVE STATIC FILES (This fixes "Cannot GET /")
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve files from the 'dist' directory (one level up from server/)
+app.use(express.static(path.join(__dirname, '../dist')));
+
+// Handle client-side routing - serve index.html for all non-API routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../dist/index.html'));
+});
+
 async function start() {
   try {
     await mongoose.connect(MONGODB_URI, {
