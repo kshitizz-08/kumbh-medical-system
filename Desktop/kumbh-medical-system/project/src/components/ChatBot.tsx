@@ -68,7 +68,8 @@ export default function ChatBot() {
         setIsLoading(true);
 
         try {
-            const response = await fetch('http://localhost:4000/api/chatbot/message', {
+            const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:4000/api';
+            const response = await fetch(`${API_BASE}/chatbot/message`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

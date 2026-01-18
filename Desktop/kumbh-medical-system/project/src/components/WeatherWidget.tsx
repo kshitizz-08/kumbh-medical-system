@@ -29,7 +29,8 @@ export default function WeatherWidget() {
 
     const fetchWeather = async () => {
         try {
-            const response = await fetch('http://localhost:4000/api/weather/current');
+            const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:4000/api';
+            const response = await fetch(`${API_BASE}/weather/current`);
             if (!response.ok) throw new Error('Failed to fetch weather');
             const data = await response.json();
             setWeather(data);
