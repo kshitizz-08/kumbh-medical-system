@@ -66,13 +66,13 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     const startCamera = async () => {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { 
+          video: {
             facingMode: 'user', // Front camera for selfie
             width: { ideal: 640 },
             height: { ideal: 480 }
           }
         });
-        
+
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -196,7 +196,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
   }, [modelsLoaded, stream]);
 
   const capturePhoto = async () => {
-    if (!videoRef.current || !canvasRef.current || !validationStatus?.isValid) {
+    if (!videoRef.current || !canvasRef.current) {
       return;
     }
 
@@ -260,7 +260,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     if (capturedImage) {
       // Use the stored descriptor if available, otherwise try to recompute
       let faceDescriptor = capturedDescriptor;
-      
+
       if (!faceDescriptor && canvasRef.current) {
         try {
           // Recompute descriptor from the captured image if not stored
@@ -292,18 +292,18 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     setCapturedImage(null);
     setCapturedDescriptor(null);
     setValidationStatus(null);
-    
+
     // Restart camera
     const startCamera = async () => {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { 
+          video: {
             facingMode: 'user',
             width: { ideal: 640 },
             height: { ideal: 480 }
           }
         });
-        
+
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -384,11 +384,10 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
 
             {validationStatus && (
               <div
-                className={`p-3 rounded-md flex items-center gap-2 ${
-                  validationStatus.isValid
-                    ? 'bg-green-50 text-green-800'
-                    : 'bg-yellow-50 text-yellow-800'
-                }`}
+                className={`p-3 rounded-md flex items-center gap-2 ${validationStatus.isValid
+                  ? 'bg-green-50 text-green-800'
+                  : 'bg-yellow-50 text-yellow-800'
+                  }`}
               >
                 {validationStatus.isValid ? (
                   <CheckCircle className="w-5 h-5 text-green-600" />
@@ -408,7 +407,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
               </button>
               <button
                 onClick={capturePhoto}
-                disabled={!validationStatus?.isValid || isCapturing}
+                disabled={isCapturing}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {isCapturing ? (
