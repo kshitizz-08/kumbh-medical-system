@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { registerDevotee } from '../lib/api';
-import { UserPlus, Loader2, Camera, X, Eye, Edit, CheckCircle, Heart } from 'lucide-react';
+import { UserPlus, Loader2, Camera, X, Eye, Edit, CheckCircle, Heart, ScanLine } from 'lucide-react';
 import SelfieCapture from './SelfieCapture';
+import IDScanner from './IDCardScanner';
+import VoiceInput from './VoiceInput';
 import MedicalRecommendations from './MedicalRecommendations';
 import { useI18n } from '../i18n/i18n';
 
@@ -31,6 +33,7 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber:
   const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [showSelfieCapture, setShowSelfieCapture] = useState(false);
+  const [showIDScanner, setShowIDScanner] = useState(false);
   const [selfieImage, setSelfieImage] = useState<string | null>(null);
   const [faceDescriptor, setFaceDescriptor] = useState<number[] | null>(null);
   const [showSummary, setShowSummary] = useState(false); // New state for summary view
@@ -109,6 +112,30 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber:
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleVoiceInput = (field: keyof FormData, text: string) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: prev[field] ? `${prev[field]} ${text}` : text
+    }));
+  };
+
+  const handleIDScan = (data: any) => {
+    setFormData(prev => ({
+      ...prev,
+      full_name: data.name || prev.full_name,
+      // age: data.age || prev.age, // Be careful with age overwriting
+      // gender: data.gender || prev.gender,
+      id_proof_number: data.idNumber || prev.id_proof_number,
+      special_notes: prev.special_notes + (data.address ? ` [Addr from ID: ${data.address}]` : '')
+    }));
+    // Try to set age if reasonable
+    if (data.age) setFormData(prev => ({ ...prev, age: data.age }));
+    if (data.gender) setFormData(prev => ({ ...prev, gender: data.gender }));
+
+    setShowIDScanner(false);
+    alert("ID Scanned! Verification details updated.");
   };
 
   // Component for displaying a summary field with modern design
@@ -288,13 +315,26 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber:
   return (
     <form onSubmit={handleFormSubmit} className="space-y-6">
       <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <UserPlus className="w-5 h-5 text-blue-600" />
-          {t('reg.personalInfo')}
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <UserPlus className="w-5 h-5 text-blue-600" />
+            {t('reg.personalInfo')}
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowIDScanner(true)}
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-lg hover:bg-indigo-100 border border-indigo-200 text-sm font-medium transition-colors"
+          >
+            <ScanLine className="w-4 h-4" />
+            Scan ID Card
+          </button>
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.fullName')}</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">{t('reg.fullName')}</label>
+              <VoiceInput onTranscript={(text) => handleVoiceInput('full_name', text)} label={t('reg.fullName')} />
+            </div>
             <input
               type="text"
               name="full_name"
@@ -522,7 +562,10 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber:
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.allergies')}</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">{t('reg.allergies')}</label>
+              <VoiceInput onTranscript={(text) => handleVoiceInput('allergies', text)} label={t('reg.allergies')} />
+            </div>
             <textarea
               name="allergies"
               value={formData.allergies}
@@ -534,7 +577,10 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber:
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.chronic')}</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">{t('reg.chronic')}</label>
+              <VoiceInput onTranscript={(text) => handleVoiceInput('chronic_conditions', text)} label={t('reg.chronic')} />
+            </div>
             <textarea
               name="chronic_conditions"
               value={formData.chronic_conditions}
@@ -546,7 +592,10 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber:
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.meds')}</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">{t('reg.meds')}</label>
+              <VoiceInput onTranscript={(text) => handleVoiceInput('current_medications', text)} label={t('reg.meds')} />
+            </div>
             <textarea
               name="current_medications"
               value={formData.current_medications}
@@ -558,7 +607,10 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber:
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.surgeries')}</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">{t('reg.surgeries')}</label>
+              <VoiceInput onTranscript={(text) => handleVoiceInput('past_surgeries', text)} label={t('reg.surgeries')} />
+            </div>
             <textarea
               name="past_surgeries"
               value={formData.past_surgeries}
@@ -570,7 +622,10 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber:
           </div>
 
           <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.notes')}</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-gray-700">{t('reg.notes')}</label>
+              <VoiceInput onTranscript={(text) => handleVoiceInput('special_notes', text)} label={t('reg.notes')} />
+            </div>
             <textarea
               name="special_notes"
               value={formData.special_notes}
@@ -609,6 +664,13 @@ export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber:
             setShowSelfieCapture(false);
           }}
           onClose={() => setShowSelfieCapture(false)}
+        />
+      )}
+
+      {showIDScanner && (
+        <IDScanner
+          onScanComplete={handleIDScan}
+          onClose={() => setShowIDScanner(false)}
         />
       )}
     </form>
