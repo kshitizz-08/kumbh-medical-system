@@ -15,8 +15,16 @@ export default function ChatBot() {
     const [messages, setMessages] = useState<Message[]>([]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [showSuggestions, setShowSuggestions] = useState(true);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const inputRef = useRef<HTMLInputElement>(null);
+
+    const quickQuestions = [
+        { label: '🚑 Emergency', text: 'Emergency help' },
+        { label: '🏥 Hospital', text: 'Where is the hospital?' },
+        { label: '☀️ Heat Stroke', text: 'I feel dizzy (Heat Stroke)' },
+        { label: '📋 Register', text: 'How to register?' },
+    ];
 
     // Auto-scroll to bottom when new messages arrive
     useEffect(() => {
@@ -53,18 +61,20 @@ export default function ChatBot() {
         setMessages((prev) => [...prev, botMessage]);
     };
 
-    const handleSend = async () => {
-        if (!inputText.trim() || isLoading) return;
+    const handleSend = async (text?: string) => {
+        if ((!text && !inputText.trim()) || isLoading) return;
 
         const userMessage: Message = {
             id: Date.now().toString() + '-user',
-            text: inputText,
+            text: text || inputText,
             sender: 'user',
             timestamp: new Date(),
         };
 
         setMessages((prev) => [...prev, userMessage]);
+        setMessages((prev) => [...prev, userMessage]);
         setInputText('');
+        setShowSuggestions(false);
         setIsLoading(true);
 
         try {
@@ -75,7 +85,7 @@ export default function ChatBot() {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    message: inputText,
+                    message: text || inputText,
                     language: lang,
                     history: messages.slice(-10).map((m) => ({
                         role: m.sender === 'user' ? 'user' : 'assistant',
@@ -205,6 +215,21 @@ export default function ChatBot() {
                         <div ref={messagesEndRef} />
                     </div>
 
+                    {/* Quick Suggestions */}
+                    {showSuggestions && messages.length < 2 && (
+                        <div className="px-4 pb-2 bg-gray-50 flex gap-2 overflow-x-auto no-scrollbar">
+                            {quickQuestions.map((q, i) => (
+                                <button
+                                    key={i}
+                                    onClick={() => handleSend(q.text)}
+                                    className="whitespace-nowrap bg-white border border-blue-200 text-blue-700 text-xs px-3 py-1.5 rounded-full hover:bg-blue-50 transition-colors shadow-sm"
+                                >
+                                    {q.label}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Input area */}
                     <div className="p-4 bg-white border-t border-gray-200 rounded-b-2xl">
                         <div className="flex gap-2">
@@ -225,7 +250,7 @@ export default function ChatBot() {
                                 disabled={isLoading}
                             />
                             <button
-                                onClick={handleSend}
+                                onClick={() => handleSend()}
                                 disabled={!inputText.trim() || isLoading}
                                 className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                                 aria-label="Send message"
