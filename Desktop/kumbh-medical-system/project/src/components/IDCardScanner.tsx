@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, X, Loader2, ScanLine } from 'lucide-react';
+import { Camera, X, CheckCircle, Loader2, ScanLine } from 'lucide-react';
 import Tesseract from 'tesseract.js';
 import { useI18n } from '../i18n/i18n';
 
@@ -84,8 +84,8 @@ export default function IDScanner({ onScanComplete, onClose }: IDScannerProps) {
         const result: any = {};
 
         // 1. Try to find ID Number (Aadhar is 12 digits, XXXX XXXX XXXX)
-        // 1. Try to find ID Number (Aadhar is 12 digits, XXXX XXXX XXXX)
         const aadharRegex = /\b\d{4}\s\d{4}\s\d{4}\b/;
+        const panRegex = /\b[A-Z]{5}[0-9]{4}[A-Z]{1}\b/;
 
         const aadharMatch = text.match(aadharRegex);
         if (aadharMatch) result.idNumber = aadharMatch[0];

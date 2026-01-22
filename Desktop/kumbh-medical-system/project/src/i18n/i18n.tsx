@@ -240,6 +240,11 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.landmarksOk': 'Face detected. Landmarks unavailable, you may capture.',
     'selfie.ready': '✓ Face detected. Ready to capture!',
     'selfie.mouthOpen': 'Please keep your mouth closed (not talking).',
+    'selfie.estimate.age': 'Est. Age',
+    'selfie.estimate.gender': 'Est. Gender',
+    'reg.photoFirst': 'Start with Photo (Auto-fill)',
+    'reg.photoFirstDesc': 'Take a photo to automatically fill age and gender',
+    'reg.autoFilled': 'Auto-filled from photo',
   },
   hi: {
     'app.title': 'नाशिक कुंभ मेला – मेडिकल सेवा',
@@ -449,6 +454,11 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.landmarksOk': 'चेहरा मिला। आप फोटो ले सकते हैं।',
     'selfie.ready': '✓ चेहरा मिला। फोटो लें!',
     'selfie.mouthOpen': 'कृपया मुंह बंद रखें।',
+    'selfie.estimate.age': 'अनुमानित उम्र',
+    'selfie.estimate.gender': 'अनुमानित लिंग',
+    'reg.photoFirst': 'फोटो से शुरू करें (ऑटो-फिल)',
+    'reg.photoFirstDesc': 'उम्र और लिंग स्वचालित रूप से भरने के लिए फोटो लें',
+    'reg.autoFilled': 'फोटो से भरा गया',
   },
   mr: {
     'app.title': 'नाशिक कुंभ मेळा – मेडिकल सेवा',
@@ -658,6 +668,11 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.landmarksOk': 'चेहरा आढळला. फोटो घेऊ शकता.',
     'selfie.ready': '✓ चेहरा आढळला. फोटो घ्या!',
     'selfie.mouthOpen': 'कृपया तोंड बंद ठेवा.',
+    'selfie.estimate.age': 'अंदाजित वय',
+    'selfie.estimate.gender': 'अंदाजित लिंग',
+    'reg.photoFirst': 'फोटोने सुरुवात करा (ऑटो-फिल)',
+    'reg.photoFirstDesc': 'वय आणि लिंग आपोआप भरण्यासाठी फोटो घ्या',
+    'reg.autoFilled': 'फोटोवरून भरले',
   },
 };
 
