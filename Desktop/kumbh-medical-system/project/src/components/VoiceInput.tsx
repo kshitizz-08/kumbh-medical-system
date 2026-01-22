@@ -1,19 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Mic, MicOff, Loader2 } from 'lucide-react';
+import { Mic, MicOff } from 'lucide-react';
 import { useI18n } from '../i18n/i18n';
 
 interface VoiceInputProps {
     onTranscript: (text: string) => void;
     language?: string; // e.g., 'en-US', 'hi-IN', 'mr-IN'
     className?: string;
-    placeholder?: string;
+    placeholder?: string; // Keeping interface but removing unused destructuring if not needed, or better, use it? actually linter said unused.
 }
 
 export default function VoiceInput({
     onTranscript,
     language = 'en-US',
     className = '',
-    placeholder
 }: VoiceInputProps) {
     const { t } = useI18n();
     const [isListening, setIsListening] = useState(false);
@@ -51,10 +50,25 @@ export default function VoiceInput({
         recognitionInstance.onerror = (event: any) => {
             console.error('Speech recognition error', event.error);
             setIsListening(false);
+            if (event.error === 'not-allowed') {
+                alert(t('common.voiceNotSupported') || 'Microphone access denied. Please allow microphone permissions.');
+            } else if (event.error === 'no-speech') {
+                // Ignore no-speech error, just stop listening
+            } else {
+                alert(`Voice input error: ${event.error}`);
+            }
         };
 
         setRecognition(recognitionInstance);
-    }, [language, onTranscript]);
+    }, [language, onTranscript, t]);
+
+    // Check for Secure Context (HTTPS) - required for Microphone on non-localhost
+    useEffect(() => {
+        if (window.location.hostname !== 'localhost' && window.location.protocol !== 'https:') {
+            setIsSupported(false);
+            console.warn('Voice input requires HTTPS on non-localhost origins.');
+        }
+    }, []);
 
     const toggleListening = useCallback((e: React.MouseEvent) => {
         e.preventDefault(); // Prevent form submission if inside a form
@@ -78,8 +92,8 @@ export default function VoiceInput({
             type="button"
             onClick={toggleListening}
             className={`p-2 rounded-full transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${isListening
-                    ? 'bg-red-100 text-red-600 animate-pulse ring-2 ring-red-400'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-red-100 text-red-600 animate-pulse ring-2 ring-red-400'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 } ${className}`}
             title={isListening ? 'Stop listening' : 'Start voice input'}
         >
