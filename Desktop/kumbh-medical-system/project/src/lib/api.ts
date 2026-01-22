@@ -63,10 +63,7 @@ export type Devotee = {
   age: number;
   gender: 'Male' | 'Female' | 'Other';
   phone: string;
-  address: string;
-  camp_location: string | null;
-  id_proof_type: string;
-  id_proof_number: string;
+
   emergency_contact_name: string;
   emergency_contact_phone: string;
   photo_url: string | null;
@@ -117,10 +114,7 @@ export type CreateDevoteePayload = {
   age: number;
   gender: Devotee['gender'];
   phone: string;
-  address: string;
-  camp_location: string | null;
-  id_proof_type: string;
-  id_proof_number: string;
+
   emergency_contact_name: string;
   emergency_contact_phone: string;
   blood_group: MedicalRecord['blood_group'];

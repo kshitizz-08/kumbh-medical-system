@@ -1,6 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { Camera, X, CheckCircle, AlertCircle, Loader2, Info } from 'lucide-react';
 import * as faceapi from 'face-api.js';
+import * as poseDetection from '@tensorflow-models/pose-detection';
+import '@tensorflow/tfjs-core';
+import '@tensorflow/tfjs-backend-webgl';
 import { useI18n } from '../i18n/i18n';
 
 type SelfieCaptureProps = {
@@ -41,35 +44,157 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     estimatedWeight?: number;
   } | null>(null);
   const detectionIntervalRef = useRef<number | null>(null);
+  const poseDetectorRef = useRef<poseDetection.PoseDetector | null>(null);
+  const [poseModelLoaded, setPoseModelLoaded] = useState(false);
 
-  // Load face-api.js models
-  useEffect(() => {
-    const loadModels = async () => {
-      // Try: local /models -> reliable jsDelivr weights -> GitHub fallback
-      const sources = [
-        '/models',
-        'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/',
-        'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/',
-      ];
+  // Helper: Estimate height from body pose keypoints
+  const estimateHeightFromPose = (keypoints: poseDetection.Keypoint[], imageHeight: number): number | null => {
+    try {
+      // Find key body points
+      const nose = keypoints.find(kp => kp.name === 'nose');
+      const leftAnkle = keypoints.find(kp => kp.name === 'left_ankle');
+      const rightAnkle = keypoints.find(kp => kp.name === 'right_ankle');
 
-      for (const url of sources) {
-        try {
-          await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(url),
-            faceapi.nets.faceLandmark68Net.loadFromUri(url),
-            faceapi.nets.faceRecognitionNet.loadFromUri(url),
-            faceapi.nets.ageGenderNet.loadFromUri(url),
-          ]);
-          setModelsLoaded(true);
-          setIsLoading(false);
-          return;
-        } catch (err) {
-          console.warn(`Failed to load models from ${url}`, err);
-        }
+      // Need at least nose and one ankle for height calculation
+      if (!nose || (!leftAnkle && !rightAnkle)) return null;
+
+      // Use the ankle with higher confidence
+      const ankle = (leftAnkle?.score || 0) > (rightAnkle?.score || 0) ? leftAnkle : rightAnkle;
+      if (!ankle || (ankle.score ?? 0) < 0.3) return null;
+
+      // Calculate body height in pixels (from nose to ankle)
+      const bodyHeightPx = Math.abs(ankle.y - nose.y);
+
+      // Estimate frame utilization (how much of frame is filled by person)
+      const frameUtilization = bodyHeightPx / imageHeight;
+
+      // Calibration: Assuming person fills ~60-70% of frame when properly positioned
+      // Average adult height (nose to ankle) is ~85% of total height
+      // So: actualHeight = (bodyHeightPx / frameUtil) * pixelToCmRatio * bodyToHeightRatio
+      const pixelToCmRatio = 0.35; // Calibrated value
+      const bodyToHeightRatio = 1.15; // Nose-to-ankle is ~87% of total height
+
+      let estimatedHeight = Math.round((bodyHeightPx / frameUtilization) * pixelToCmRatio * bodyToHeightRatio);
+
+      // Bound to realistic range (140cm to 200cm)
+      estimatedHeight = Math.min(Math.max(estimatedHeight, 140), 200);
+
+      return estimatedHeight;
+    } catch (error) {
+      console.error('Error estimating height:', error);
+      return null;
+    }
+  };
+
+  // Helper: Estimate weight from body proportions and shape
+  const estimateWeightFromPose = (
+    keypoints: poseDetection.Keypoint[],
+    gender: 'male' | 'female',
+    height: number
+  ): number | null => {
+    try {
+      // Find shoulder and hip keypoints
+      const leftShoulder = keypoints.find(kp => kp.name === 'left_shoulder');
+      const rightShoulder = keypoints.find(kp => kp.name === 'right_shoulder');
+      const leftHip = keypoints.find(kp => kp.name === 'left_hip');
+      const rightHip = keypoints.find(kp => kp.name === 'right_hip');
+
+      // Need all four points for build analysis
+      if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return null;
+      const minScore = Math.min(
+        leftShoulder.score ?? 0,
+        rightShoulder.score ?? 0,
+        leftHip.score ?? 0,
+        rightHip.score ?? 0
+      );
+      if (minScore < 0.3) return null;
+
+      // Calculate shoulder and hip widths in pixels
+      const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x);
+      const hipWidth = Math.abs(rightHip.x - leftHip.x);
+
+      // Calculate shoulder-to-hip ratio (indicator of build/body composition)
+      const buildRatio = shoulderWidth / hipWidth;
+
+      // Base BMI for normal build
+      const baseBMI = gender === 'male' ? 22.5 : 21.5;
+
+      // Adjust BMI based on build ratio
+      // buildRatio > 1.2 = broader shoulders = more muscular
+      // buildRatio < 0.95 = wider hips = different build
+      let adjustedBMI = baseBMI;
+      if (buildRatio > 1.15) {
+        adjustedBMI += (buildRatio - 1.15) * 4; // Broader = potentially higher muscle mass
+      } else if (buildRatio < 1.0) {
+        adjustedBMI += (1.0 - buildRatio) * 2;
       }
 
-      setIsLoading(false);
-      alert(t('selfie.failModels'));
+      // Calculate weight from BMI: weight = BMI × (height in meters)²
+      const heightM = height / 100;
+      let estimatedWeight = Math.round(adjustedBMI * heightM * heightM);
+
+      // Bound to realistic range (35kg to 150kg)
+      estimatedWeight = Math.min(Math.max(estimatedWeight, 35), 150);
+
+      return estimatedWeight;
+    } catch (error) {
+      console.error('Error estimating weight:', error);
+      return null;
+    }
+  };
+
+  // Load face-api.js models and TensorFlow pose detection
+  useEffect(() => {
+    const loadModels = async () => {
+      try {
+        // Load Face-API models from CDN
+        const sources = [
+          'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/',
+          'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/',
+        ];
+
+        let faceModelsLoaded = false;
+        for (const url of sources) {
+          try {
+            await Promise.all([
+              faceapi.nets.tinyFaceDetector.loadFromUri(url),
+              faceapi.nets.faceLandmark68Net.loadFromUri(url),
+              faceapi.nets.faceRecognitionNet.loadFromUri(url),
+              faceapi.nets.ageGenderNet.loadFromUri(url),
+            ]);
+            faceModelsLoaded = true;
+            setModelsLoaded(true);
+            break;
+          } catch (err) {
+            console.warn(`Failed to load face models from ${url}`, err);
+          }
+        }
+
+        // Check if face models loaded successfully
+        if (!faceModelsLoaded) {
+          throw new Error('Failed to load face detection models from all sources');
+        }
+
+        // Load MoveNet pose detection model (optional) - TEMPORARILY DISABLED for debugging
+        /* try {
+          const model = poseDetection.SupportedModels.MoveNet;
+          const detectorConfig = {
+            modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+          };
+          const detector = await poseDetection.createDetector(model, detectorConfig);
+          poseDetectorRef.current = detector;
+          setPoseModelLoaded(true);
+        } catch (poseErr) {
+          console.warn('Pose model loading failed, will use fallback estimation:', poseErr);
+          // Pose detection is optional - continue without it
+        } */
+
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Failed to load models:', err);
+        setIsLoading(false);
+        alert(t('selfie.failModels'));
+      }
     };
 
     loadModels();
@@ -254,29 +379,50 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
       if (detection) {
         faceDescriptor = Array.from(detection.descriptor as Float32Array);
 
-        // Extract Age and Gender
+        // Extract Age and Gender from face
         const age = Math.round(detection.age);
         const gender = detection.gender as 'male' | 'female';
 
-        // Heuristic Estimation for Height and Weight based on Age/Gender (Indian Averages)
-        let estimatedHeight = 165; // cm
-        let estimatedWeight = 60;  // kg
+        // Try to estimate height and weight from body pose
+        let estimatedHeight: number | null = null;
+        let estimatedWeight: number | null = null;
 
-        if (gender === 'male') {
-          if (age < 12) { estimatedHeight = 135; estimatedWeight = 30; }
-          else if (age < 16) { estimatedHeight = 160; estimatedWeight = 50; }
-          else if (age < 20) { estimatedHeight = 170; estimatedWeight = 60; }
-          else { estimatedHeight = 172; estimatedWeight = 68; } // Adult Male
-        } else {
-          if (age < 12) { estimatedHeight = 135; estimatedWeight = 30; }
-          else if (age < 16) { estimatedHeight = 155; estimatedWeight = 45; }
-          else if (age < 20) { estimatedHeight = 160; estimatedWeight = 52; }
-          else { estimatedHeight = 158; estimatedWeight = 58; } // Adult Female
+        if (poseDetectorRef.current && poseModelLoaded) {
+          try {
+            // Detect body pose from captured image
+            const poses = await poseDetectorRef.current.estimatePoses(canvas);
+
+            if (poses.length > 0 && poses[0].keypoints) {
+              const keypoints = poses[0].keypoints;
+
+              // Estimate height from body proportions
+              estimatedHeight = estimateHeightFromPose(keypoints, canvas.height);
+
+              // If we got a height estimate, calculate weight
+              if (estimatedHeight) {
+                estimatedWeight = estimateWeightFromPose(keypoints, gender, estimatedHeight);
+              }
+            }
+          } catch (poseError) {
+            console.warn('Pose detection failed, falling back to heuristics:', poseError);
+          }
         }
 
-        // Add some random variation to make it feel less static (optional, but realistic)
-        // estimatedHeight += Math.floor(Math.random() * 5) - 2;
-        // estimatedWeight += Math.floor(Math.random() * 5) - 2;
+        // Fallback to heuristic estimation if pose detection failed
+        if (!estimatedHeight || !estimatedWeight) {
+          // Age/Gender-based heuristics (Indian averages)
+          if (gender === 'male') {
+            if (age < 12) { estimatedHeight = estimatedHeight || 135; estimatedWeight = estimatedWeight || 30; }
+            else if (age < 16) { estimatedHeight = estimatedHeight || 160; estimatedWeight = estimatedWeight || 50; }
+            else if (age < 20) { estimatedHeight = estimatedHeight || 170; estimatedWeight = estimatedWeight || 60; }
+            else { estimatedHeight = estimatedHeight || 172; estimatedWeight = estimatedWeight || 68; }
+          } else {
+            if (age < 12) { estimatedHeight = estimatedHeight || 135; estimatedWeight = estimatedWeight || 30; }
+            else if (age < 16) { estimatedHeight = estimatedHeight || 155; estimatedWeight = estimatedWeight || 45; }
+            else if (age < 20) { estimatedHeight = estimatedHeight || 160; estimatedWeight = estimatedWeight || 52; }
+            else { estimatedHeight = estimatedHeight || 158; estimatedWeight = estimatedWeight || 58; }
+          }
+        }
 
         demographics = {
           age,
@@ -426,6 +572,17 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
           </div>
         ) : (
           <div className="space-y-4">
+            {/* Body capture instructions */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-start gap-2">
+                <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800">
+                  <strong>{t('selfie.bodyTip') || 'For accurate height/weight detection'}</strong>
+                  <p className="text-xs mt-0.5">{t('selfie.bodyInstructions') || 'Step back to show your full body from head to toe'}</p>
+                </div>
+              </div>
+            </div>
+
             <div className="relative bg-gray-900 rounded-lg overflow-hidden">
               <video
                 ref={videoRef}

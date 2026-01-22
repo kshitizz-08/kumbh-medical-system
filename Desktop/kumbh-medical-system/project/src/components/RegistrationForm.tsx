@@ -24,10 +24,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
         age: 0,
         gender: 'Male', // Default
         phone: '',
-        address: '',
-        camp_location: '',
-        id_proof_type: 'Aadhaar',
-        id_proof_number: '',
+
         emergency_contact_name: '',
         emergency_contact_phone: '',
         blood_group: null,
@@ -72,9 +69,8 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
 
         try {
             // Validate mandatory fields
-            // Validate mandatory fields
             if (!formData.full_name || !formData.phone || !formData.photo_url || !formData.face_descriptor ||
-                !formData.id_proof_number || !formData.emergency_contact_name || !formData.emergency_contact_phone) {
+                !formData.emergency_contact_name || !formData.emergency_contact_phone) {
                 throw new Error(t('reg.fail', { message: 'Please fill required fields and take a photo.' }));
             }
 
@@ -164,7 +160,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                         </h4>
 
                         <div className="relative">
-                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.fullName')} *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.fullName')} <span className="text-red-500 font-bold">*</span></label>
                             <div className="flex gap-2">
                                 <input
                                     type="text"
@@ -179,7 +175,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.age')} *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.age')} <span className="text-red-500 font-bold">*</span></label>
                                 <input
                                     type="number"
                                     required
@@ -191,21 +187,21 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                                 />
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.gender')} *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.gender')} <span className="text-red-500 font-bold">*</span></label>
                                 <select
                                     value={formData.gender}
                                     onChange={e => setFormData({ ...formData, gender: e.target.value as any })}
                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
                                 >
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Other">Other</option>
+                                    <option value="Male">{t('reg.gender.male')}</option>
+                                    <option value="Female">{t('reg.gender.female')}</option>
+                                    <option value="Other">{t('reg.gender.other')}</option>
                                 </select>
                             </div>
                         </div>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.phone')} *</label>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.phone')} <span className="text-red-500 font-bold">*</span></label>
                             <div className="flex gap-2">
                                 <input
                                     type="tel"
@@ -218,63 +214,11 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                             </div>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.address')}</label>
-                            <div className="flex gap-2">
-                                <textarea
-                                    rows={2}
-                                    value={formData.address}
-                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 resize-none"
-                                />
-                                <VoiceInput onTranscript={(text) => handleVoiceInput('address', text)} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
-                            </div>
-                        </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.campLocation')}</label>
-                            <input
-                                type="text"
-                                value={formData.camp_location}
-                                onChange={e => setFormData({ ...formData, camp_location: e.target.value })}
-                                placeholder={t('reg.campPlaceholder')}
-                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-                            />
-                        </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.idProofType')} *</label>
-                                <select
-                                    value={formData.id_proof_type}
-                                    onChange={e => setFormData({ ...formData, id_proof_type: e.target.value })}
-                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-                                >
-                                    <option value="Aadhaar">{t('reg.id.aadhar')}</option>
-                                    <option value="Passport">{t('reg.id.passport')}</option>
-                                    <option value="Voter ID">{t('reg.id.voter')}</option>
-                                    <option value="Driving License">{t('reg.id.dl')}</option>
-                                    <option value="Other">{t('reg.id.other')}</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.idProofNumber')} *</label>
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        required
-                                        value={formData.id_proof_number}
-                                        onChange={e => setFormData({ ...formData, id_proof_number: e.target.value })}
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
-                                    />
-                                    <VoiceInput onTranscript={(text) => handleVoiceInput('id_proof_number', text)} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.emergencyName')} *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.emergencyName')} <span className="text-red-500 font-bold">*</span></label>
                                 <div className="flex gap-2">
                                     <input
                                         type="text"
@@ -287,7 +231,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.emergencyPhone')} *</label>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.emergencyPhone')} <span className="text-red-500 font-bold">*</span></label>
                                 <div className="flex gap-2">
                                     <input
                                         type="tel"
@@ -337,7 +281,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                                 onChange={e => setFormData({ ...formData, blood_group: (e.target.value || null) as any })}
                                 className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
                             >
-                                <option value="">Select...</option>
+                                <option value="">{t('reg.selectBloodGroup')}</option>
                                 <option value="A+">A+</option>
                                 <option value="A-">A-</option>
                                 <option value="B+">B+</option>
@@ -393,13 +337,13 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                                     }}
                                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
                                 >
-                                    <option value="">{t('reg.chronicPlaceholder') || "Add condition..."}</option>
-                                    <option value="None">None</option>
-                                    <option value="Diabetes">Diabetes</option>
-                                    <option value="Hypertension">Hypertension</option>
-                                    <option value="Asthma">Asthma</option>
-                                    <option value="Arthritis">Arthritis</option>
-                                    <option value="Other">Other (Specify)</option>
+                                    <option value="">{t('reg.chronicPlaceholder') || "Select..."}</option>
+                                    <option value="None">{t('condition.none')}</option>
+                                    <option value="Diabetes">{t('condition.diabetes')}</option>
+                                    <option value="Hypertension">{t('condition.hypertension')}</option>
+                                    <option value="Asthma">{t('condition.asthma')}</option>
+                                    <option value="Arthritis">{t('condition.arthritis')}</option>
+                                    <option value="Other">{t('condition.other')}</option>
                                 </select>
 
                                 {showOtherCondition && (
@@ -435,7 +379,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                                             }}
                                             className="px-3 py-2 bg-orange-600 text-white rounded-md text-sm"
                                         >
-                                            Add
+                                            {t('common.add')}
                                         </button>
                                         <VoiceInput onTranscript={setOtherCondition} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
                                     </div>
@@ -507,7 +451,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                                         }}
                                         className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm whitespace-nowrap"
                                     >
-                                        Add
+                                        {t('common.add')}
                                     </button>
                                     <VoiceInput onTranscript={setMedicationInput} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
                                 </div>
@@ -565,7 +509,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                                         }}
                                         className="px-3 py-2 bg-red-600 text-white rounded-md text-sm whitespace-nowrap"
                                     >
-                                        Add
+                                        {t('common.add')}
                                     </button>
                                     <VoiceInput onTranscript={setSurgeryInput} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
                                 </div>

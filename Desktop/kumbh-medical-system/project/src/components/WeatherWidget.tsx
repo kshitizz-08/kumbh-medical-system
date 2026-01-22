@@ -45,8 +45,8 @@ export default function WeatherWidget() {
 
     useEffect(() => {
         fetchWeather();
-        // Refresh every 30 minutes
-        const interval = setInterval(fetchWeather, 30 * 60 * 1000);
+        // Refresh every 5 minutes
+        const interval = setInterval(fetchWeather, 5 * 60 * 1000);
         return () => clearInterval(interval);
     }, []);
 
@@ -178,7 +178,7 @@ export default function WeatherWidget() {
             {/* Last Updated */}
             <div className="text-xs text-blue-500 text-center mt-3">
                 {weather.cached && (lang === 'hi' ? 'कैश से लोड किया गया' : lang === 'mr' ? 'कॅशमधून लोड केले' : 'Cached data')} •
-                {lang === 'hi' ? ' हर 30 मिनट में अपडेट' : lang === 'mr' ? ' दर 30 मिनिटांनी अपडेट' : ' Updates every 30 min'}
+                {lang === 'hi' ? ' हर 5 मिनट में अपडेट' : lang === 'mr' ? ' दर 5 मिनिटांनी अपडेट' : ' Updates every 5 min'}
             </div>
         </div>
     );

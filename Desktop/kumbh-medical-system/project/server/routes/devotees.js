@@ -40,10 +40,7 @@ router.post('/', async (req, res) => {
           age: req.body.age,
           gender: req.body.gender,
           phone: req.body.phone,
-          address: req.body.address,
-          camp_location: req.body.camp_location || null,
-          id_proof_type: req.body.id_proof_type,
-          id_proof_number: req.body.id_proof_number,
+
           emergency_contact_name: req.body.emergency_contact_name,
           emergency_contact_phone: req.body.emergency_contact_phone,
           photo_url: req.body.photo_url || null,

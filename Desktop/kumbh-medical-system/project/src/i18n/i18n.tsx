@@ -93,7 +93,13 @@ const DICT: Record<Language, Dictionary> = {
     'reg.allergies': 'Known Allergies',
     'reg.allergiesPlaceholder': 'Food allergies, drug allergies, etc.',
     'reg.chronic': 'Chronic Conditions',
-    'reg.chronicPlaceholder': 'Diabetes, Hypertension, Asthma, etc.',
+    'reg.chronicPlaceholder': 'Select...',
+    'condition.diabetes': 'Diabetes',
+    'condition.hypertension': 'Hypertension',
+    'condition.asthma': 'Asthma',
+    'condition.arthritis': 'Arthritis',
+    'condition.none': 'None',
+    'condition.other': 'Other (Specify)',
     'reg.meds': 'Current Medications',
     'reg.medsPlaceholder': 'List all current medications and dosages',
     'reg.surgeries': 'Past Surgeries',
@@ -218,7 +224,7 @@ const DICT: Record<Language, Dictionary> = {
 
     // Common
     'common.close': 'Close',
-
+    'common.add': 'Add',
     'common.voiceNotSupported': 'Voice input is not supported in this browser.',
     'common.total': 'total',
 
@@ -242,6 +248,10 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.multiFace': 'Multiple faces detected. Please ensure you are alone in the frame.',
     'selfie.landmarksOk': 'Face detected. Landmarks unavailable, you may capture.',
     'selfie.ready': '✓ Face detected. Ready to capture!',
+    'selfie.bodyTip': 'For accurate height/weight detection',
+    'selfie.bodyInstructions': 'Step back to show your full body from head to toe',
+    'selfie.bodyDetected': 'Body detected! Ready to capture',
+    'selfie.bodyNotVisible': 'Please show more of your body',
     'selfie.mouthOpen': 'Please keep your mouth closed (not talking).',
   },
   hi: {
@@ -312,7 +322,13 @@ const DICT: Record<Language, Dictionary> = {
     'reg.allergies': 'एलर्जी',
     'reg.allergiesPlaceholder': 'खाने/दवाओं की एलर्जी आदि',
     'reg.chronic': 'पुरानी बीमारियाँ',
-    'reg.chronicPlaceholder': 'बीमारी चुनें',
+    'reg.chronicPlaceholder': 'चुनें...',
+    'condition.diabetes': 'मधुमेह (Diabetes)',
+    'condition.hypertension': 'उच्च रक्तचाप (BP)',
+    'condition.asthma': 'दमा (Asthma)',
+    'condition.arthritis': 'गठिया (Arthritis)',
+    'condition.none': 'कोई नहीं',
+    'condition.other': 'अन्य (बताएं)',
     'reg.meds': 'वर्तमान दवाएँ',
     'reg.medsPlaceholder': 'दवाओं के नाम और मात्रा लिखें',
     'reg.surgeries': 'पिछली सर्जरी',
@@ -432,7 +448,7 @@ const DICT: Record<Language, Dictionary> = {
     'incident.fail': ({ message }: any) => `घटना दर्ज नहीं हुई: ${message}`,
 
     'common.close': 'बंद करें',
-
+    'common.add': 'जोड़ें',
     'common.voiceNotSupported': 'इस ब्राउज़र में वॉयस इनपुट समर्थित नहीं है।',
     'common.total': 'कुल',
 
@@ -454,6 +470,10 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.multiFace': 'एक से ज्यादा चेहरे मिले। कृपया अकेले रहें।',
     'selfie.landmarksOk': 'चेहरा मिला। आप फोटो ले सकते हैं।',
     'selfie.ready': '✓ चेहरा मिला। फोटो लें!',
+    'selfie.bodyTip': 'सटीक ऊंचाई/वजन का पता लगाने के लिए',
+    'selfie.bodyInstructions': 'अपने पूरे शरीर को सिर से पैर तक दिखाने के लिए पीछे हटें',
+    'selfie.bodyDetected': 'शरीर पहचान लिया गया! फोटो लेने के लिए तैयार',
+    'selfie.bodyNotVisible': 'कृपया अपने शरीर का अधिक भाग दिखाएं',
     'selfie.mouthOpen': 'कृपया मुंह बंद रखें।',
   },
   mr: {
@@ -524,7 +544,13 @@ const DICT: Record<Language, Dictionary> = {
     'reg.allergies': 'अलर्जी',
     'reg.allergiesPlaceholder': 'अन्न/औषधांची अलर्जी इ.',
     'reg.chronic': 'दीर्घकालीन आजार',
-    'reg.chronicPlaceholder': 'बीमारी चुनें',
+    'reg.chronicPlaceholder': 'निवडा...',
+    'condition.diabetes': 'मधुमेह (Diabetes)',
+    'condition.hypertension': 'उच्च रक्तदाब (BP)',
+    'condition.asthma': 'दमा (Asthma)',
+    'condition.arthritis': 'सांधेदुखी (Arthritis)',
+    'condition.none': 'काही नाही',
+    'condition.other': 'इतर (नमूद करा)',
     'reg.meds': 'सध्याची औषधे',
     'reg.medsPlaceholder': 'औषधे व डोस लिहा',
     'reg.surgeries': 'पूर्वीची शस्त्रक्रिया',
@@ -644,7 +670,7 @@ const DICT: Record<Language, Dictionary> = {
     'incident.fail': ({ message }: any) => `घटना नोंदली गेली नाही: ${message}`,
 
     'common.close': 'बंद करा',
-
+    'common.add': 'जोडा',
     'common.voiceNotSupported': 'या ब्राउझरमध्ये व्हॉइस इनपुट समर्थित नाही.',
     'common.total': 'एकूण',
 
@@ -666,6 +692,10 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.multiFace': 'एकाहून अधिक चेहरे आढळले. कृपया एकटे रहा.',
     'selfie.landmarksOk': 'चेहरा आढळला. फोटो घेऊ शकता.',
     'selfie.ready': '✓ चेहरा आढळला. फोटो घ्या!',
+    'selfie.bodyTip': 'अचूक उंची/वजन शोधण्यासाठी',
+    'selfie.bodyInstructions': 'तुमचे संपूर्ण शरीर डोक्यापासून पायापर्यंत दाखवण्यासाठी मागे जा',
+    'selfie.bodyDetected': 'शरीर ओळखले! फोटो घेण्यासाठी तयार',
+    'selfie.bodyNotVisible': 'कृपया आपल्या शरीराचा अधिक भाग दाखवा',
     'selfie.mouthOpen': 'कृपया तोंड बंद ठेवा.',
   },
 };
