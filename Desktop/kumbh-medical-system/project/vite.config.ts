@@ -84,6 +84,13 @@ export default defineConfig({
       protocol: 'ws',
       host: 'localhost',
     },
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
   preview: {
     host: '0.0.0.0',
