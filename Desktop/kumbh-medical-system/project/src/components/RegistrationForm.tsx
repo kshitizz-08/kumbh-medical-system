@@ -1,693 +1,599 @@
 import { useState } from 'react';
-import { registerDevotee } from '../lib/api';
-import { UserPlus, Loader2, Camera, X, Eye, Edit, CheckCircle, Heart, Sparkles, ChevronRight, Scan } from 'lucide-react';
-import SelfieCapture from './SelfieCapture';
-import MedicalRecommendations from './MedicalRecommendations';
+import { Camera, Save, User, AlertCircle } from 'lucide-react';
+import { registerDevotee, CreateDevoteePayload } from '../lib/api';
 import { useI18n } from '../i18n/i18n';
+import SelfieCapture from './SelfieCapture';
+import VoiceInput from './VoiceInput';
 
-type FormData = {
-  full_name: string;
-  age: string;
-  gender: string;
-  phone: string;
-  address: string;
-  camp_location: string;
-  id_proof_type: string;
-  id_proof_number: string;
-  emergency_contact_name: string;
-  emergency_contact_phone: string;
-  blood_group: string;
-  height_cm: string;
-  weight_kg: string;
-  allergies: string;
-  chronic_conditions: string;
-  current_medications: string;
-  past_surgeries: string;
-  vaccination_status: string;
-  special_notes: string;
+type RegistrationFormProps = {
+    onSuccess: (regNumber: string) => void;
 };
 
-export default function RegistrationForm({ onSuccess }: { onSuccess: (regNumber: string) => void }) {
-  const { t } = useI18n();
-  const [loading, setLoading] = useState(false);
-  const [showSelfieCapture, setShowSelfieCapture] = useState(false);
-  const [selfieImage, setSelfieImage] = useState<string | null>(null);
-  const [faceDescriptor, setFaceDescriptor] = useState<number[] | null>(null);
-  const [showSummary, setShowSummary] = useState(false);
+export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
+    const { t, lang } = useI18n();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [showSelfieCapture, setShowSelfieCapture] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [otherCondition, setOtherCondition] = useState('');
+    const [showOtherCondition, setShowOtherCondition] = useState(false);
+    const [medicationInput, setMedicationInput] = useState('');
+    const [surgeryInput, setSurgeryInput] = useState('');
 
-  // Track which fields were auto-filled
-  const [autoFilledFields, setAutoFilledFields] = useState<string[]>([]);
+    const [formData, setFormData] = useState<CreateDevoteePayload>({
+        full_name: '',
+        age: 0,
+        gender: 'Male', // Default
+        phone: '',
+        address: '',
+        camp_location: '',
+        id_proof_type: 'Aadhaar',
+        id_proof_number: '',
+        emergency_contact_name: '',
+        emergency_contact_phone: '',
+        blood_group: null,
+        height_cm: null,
+        weight_kg: null,
+        allergies: '',
+        chronic_conditions: '',
+        current_medications: '',
+        past_surgeries: '',
+        vaccination_status: 'Fully Vaccinated',
+        special_notes: '',
+        photo_url: null,
+        face_descriptor: null,
+    });
 
-  const [formData, setFormData] = useState<FormData>({
-    full_name: '',
-    age: '',
-    gender: 'Male',
-    phone: '',
-    address: '',
-    camp_location: '',
-    id_proof_type: 'Aadhar',
-    id_proof_number: '',
-    emergency_contact_name: '',
-    emergency_contact_phone: '',
-    blood_group: '',
-    height_cm: '',
-    weight_kg: '',
-    allergies: '',
-    chronic_conditions: '',
-    current_medications: '',
-    past_surgeries: '',
-    vaccination_status: '',
-    special_notes: '',
-  });
+    // Handle voice updates
+    const handleVoiceInput = (field: keyof CreateDevoteePayload, text: string) => {
+        setFormData(prev => ({
+            ...prev,
+            [field]: text
+        }));
+    };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setShowSummary(true);
-  };
+    const handleCapture = (image: string, descriptor: number[] | null, demographics?: any) => {
+        setFormData(prev => ({
+            ...prev,
+            photo_url: image, // In a real app, upload this first and get a URL
+            face_descriptor: descriptor,
+            // Auto-populate demographics if available and not already set manually? 
+            // Or just overwrite? Let's overwrite for convenience but allow edit.
+            age: demographics?.age || prev.age,
+            gender: demographics?.gender === 'male' ? 'Male' : demographics?.gender === 'female' ? 'Female' : prev.gender,
+            height_cm: demographics?.estimatedHeight || prev.height_cm,
+            weight_kg: demographics?.estimatedWeight || prev.weight_kg,
+        }));
+    };
 
-  const handleFinalSubmit = async () => {
-    setLoading(true);
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        setIsSubmitting(true);
+        setError(null);
 
-    try {
-      const devotee = await registerDevotee({
-        full_name: formData.full_name,
-        age: parseInt(formData.age, 10),
-        gender: formData.gender as 'Male' | 'Female' | 'Other',
-        phone: formData.phone,
-        address: formData.address,
-        camp_location: formData.camp_location || null,
-        id_proof_type: formData.id_proof_type,
-        id_proof_number: formData.id_proof_number,
-        emergency_contact_name: formData.emergency_contact_name,
-        emergency_contact_phone: formData.emergency_contact_phone,
-        blood_group: formData.blood_group as any,
-        height_cm: formData.height_cm ? parseFloat(formData.height_cm) : null,
-        weight_kg: formData.weight_kg ? parseFloat(formData.weight_kg) : null,
-        allergies: formData.allergies,
-        chronic_conditions: formData.chronic_conditions,
-        current_medications: formData.current_medications,
-        past_surgeries: formData.past_surgeries,
-        vaccination_status: formData.vaccination_status,
-        special_notes: formData.special_notes,
-        photo_url: selfieImage || null,
-        face_descriptor: faceDescriptor,
-      });
+        try {
+            // Validate mandatory fields
+            // Validate mandatory fields
+            if (!formData.full_name || !formData.phone || !formData.photo_url || !formData.face_descriptor ||
+                !formData.id_proof_number || !formData.emergency_contact_name || !formData.emergency_contact_phone) {
+                throw new Error(t('reg.fail', { message: 'Please fill required fields and take a photo.' }));
+            }
 
-      onSuccess(devotee.registration_number);
-    } catch (error) {
-      alert(t('reg.fail', { message: (error as Error).message }));
-    } finally {
-      setLoading(false);
-    }
-  };
+            // Merge "Other" condition if pending
+            const finalData = { ...formData };
+            if (showOtherCondition && otherCondition.trim()) {
+                const current = formData.chronic_conditions.split(', ').filter(c => c && c !== 'None');
+                finalData.chronic_conditions = [...current, otherCondition.trim()].join(', ');
+            }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    // Remove field from auto-filled list if user manually edits it
-    if (autoFilledFields.includes(e.target.name)) {
-      setAutoFilledFields(prev => prev.filter(f => f !== e.target.name));
-    }
-  };
+            const result = await registerDevotee(finalData);
+            onSuccess(result.registration_number);
+        } catch (err: any) {
+            console.error('Registration failed:', err);
+            setError(err.message || 'Registration failed');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
 
-  const SummaryField = ({ label, value }: { label: string; value: string | null | undefined }) => {
-    if (!value) return null;
     return (
-      <div className="group">
-        <dt className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
-          {label}
-        </dt>
-        <dd className="text-base font-medium text-gray-900 bg-gray-50 px-3 py-2 rounded-md group-hover:bg-gray-100 transition-colors">
-          {value}
-        </dd>
-      </div>
-    );
-  };
+        <div className="bg-white rounded-2xl shadow-xl border border-orange-100 overflow-hidden">
+            {showSelfieCapture && (
+                <SelfieCapture
+                    onCapture={handleCapture}
+                    onClose={() => setShowSelfieCapture(false)}
+                />
+            )}
 
-  if (showSummary) {
-    return (
-      <div className="space-y-6 max-w-5xl mx-auto">
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-700 text-white rounded-2xl shadow-2xl">
-          <div className="relative p-8">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 bg-white/20 backdrop-blur-sm rounded-xl flex items-center justify-center flex-shrink-0">
-                <Eye className="w-8 h-8" />
-              </div>
-              <div className="flex-1">
-                <h2 className="text-3xl font-bold mb-2">{t('reg.reviewTitle')}</h2>
-                <p className="text-blue-100 text-sm max-w-2xl">{t('reg.reviewDesc')}</p>
-              </div>
+            <div className="bg-orange-50 px-6 py-4 border-b border-orange-100 flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-orange-900 flex items-center gap-2">
+                    <User className="w-5 h-5" />
+                    {t('register.pageTitle')}
+                </h3>
             </div>
-          </div>
-          <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
-        </div>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <UserPlus className="w-5 h-5 text-white" />
-              </div>
-              {t('reg.personalInfo')}
-            </h3>
-          </div>
-          <div className="p-6">
-            <dl className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <SummaryField label={t('reg.fullName')} value={formData.full_name} />
-              <SummaryField label={t('reg.age')} value={`${formData.age} years`} />
-              <SummaryField label={t('reg.gender')} value={formData.gender} />
-              <SummaryField label={t('reg.phone')} value={formData.phone} />
-              <div className="md:col-span-2">
-                <SummaryField label={t('reg.address')} value={formData.address} />
-              </div>
-              <SummaryField label={t('reg.campLocation')} value={formData.camp_location || 'Not specified'} />
-              <SummaryField label={t('reg.idProofType')} value={formData.id_proof_type} />
-              <SummaryField label={t('reg.idProofNumber')} value={formData.id_proof_number} />
-              <SummaryField label={t('reg.emergencyName')} value={formData.emergency_contact_name} />
-              <SummaryField label={t('reg.emergencyPhone')} value={formData.emergency_contact_phone} />
-
-              {selfieImage && (
-                <div className="md:col-span-2">
-                  <dt className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">{t('reg.selfie')}</dt>
-                  <dd className="flex gap-4 items-center">
-                    <div className="relative group">
-                      <img
-                        src={selfieImage}
-                        alt="Selfie preview"
-                        className="w-24 h-24 object-cover rounded-xl border-2 border-blue-200 shadow-md group-hover:shadow-xl transition-all"
-                      />
-                      <div className="absolute inset-0 bg-blue-600/0 group-hover:bg-blue-600/10 rounded-xl transition-colors"></div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-8">
+                {error && (
+                    <div className="bg-red-50 text-red-700 p-4 rounded-lg flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                        <p>{error}</p>
                     </div>
-                    <span className="text-sm text-green-700 bg-green-50 px-3 py-1.5 rounded-full font-medium flex items-center gap-1">
-                      <CheckCircle className="w-4 h-4" />
-                      Photo captured
-                    </span>
-                  </dd>
+                )}
+
+                {/* Photo Section */}
+                <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-orange-200 rounded-xl bg-orange-50/30">
+                    {formData.photo_url ? (
+                        <div className="relative">
+                            <img
+                                src={formData.photo_url}
+                                alt="Devotee"
+                                className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setShowSelfieCapture(true)}
+                                className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 shadow-md transition-transform hover:scale-105"
+                                title={t('selfie.retake')}
+                            >
+                                <Camera className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="text-center">
+                            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 text-orange-400">
+                                <Camera className="w-10 h-10" />
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowSelfieCapture(true)}
+                                className="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
+                            >
+                                {t('reg.takeSelfie')}
+                            </button>
+                            <p className="text-xs text-gray-500 mt-2 max-w-xs mx-auto">
+                                {t('reg.selfieHint')}
+                            </p>
+                        </div>
+                    )}
                 </div>
-              )}
-            </dl>
-          </div>
-        </div>
 
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="bg-gradient-to-r from-red-50 to-pink-50 px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-              <div className="w-8 h-8 bg-red-600 rounded-lg flex items-center justify-center">
-                <Heart className="w-5 h-5 text-white" />
-              </div>
-              {t('reg.medicalInfo')}
-            </h3>
-          </div>
-          <div className="p-6">
-            <dl className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <SummaryField label={t('reg.bloodGroup')} value={formData.blood_group || 'Not specified'} />
-              <SummaryField label={t('reg.height')} value={formData.height_cm ? `${formData.height_cm} cm` : 'Not specified'} />
-              <SummaryField label={t('reg.weight')} value={formData.weight_kg ? `${formData.weight_kg} kg` : 'Not specified'} />
-              <SummaryField label={t('reg.vaccination')} value={formData.vaccination_status || 'Not specified'} />
-              <SummaryField label={t('reg.allergies')} value={formData.allergies || 'None reported'} />
-              <SummaryField label={t('reg.chronic')} value={formData.chronic_conditions || 'None reported'} />
-              <SummaryField label={t('reg.meds')} value={formData.current_medications || 'None reported'} />
-              <SummaryField label={t('reg.surgeries')} value={formData.past_surgeries || 'None reported'} />
-              <SummaryField label={t('reg.notes')} value={formData.special_notes || 'None'} />
-            </dl>
-          </div>
-        </div>
+                {/* Personal Details */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                        <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 pb-2">
+                            {t('reg.personalInfo')}
+                        </h4>
 
-        <MedicalRecommendations
-          formData={{
-            allergies: formData.allergies,
-            chronic_conditions: formData.chronic_conditions,
-            current_medications: formData.current_medications,
-            blood_group: formData.blood_group
-          }}
-        />
+                        <div className="relative">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.fullName')} *</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    required
+                                    value={formData.full_name}
+                                    onChange={e => setFormData({ ...formData, full_name: e.target.value })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                />
+                                <VoiceInput onTranscript={(text) => handleVoiceInput('full_name', text)} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                            </div>
+                        </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 pt-4">
-          <button
-            type="button"
-            onClick={() => setShowSummary(false)}
-            className="flex-1 bg-white text-gray-700 py-4 px-6 rounded-xl hover:bg-gray-50 font-semibold flex items-center justify-center gap-2 transition-all border-2 border-gray-300 hover:border-gray-400 shadow-sm hover:shadow-md"
-          >
-            <Edit className="w-5 h-5" />
-            {t('reg.editInfo')}
-          </button>
-          <button
-            type="button"
-            onClick={handleFinalSubmit}
-            disabled={loading}
-            className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white py-4 px-6 rounded-xl hover:from-green-700 hover:to-emerald-700 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed font-semibold flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-          >
-            {loading ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                {t('reg.submitting')}
-              </>
-            ) : (
-              <>
-                <CheckCircle className="w-5 h-5" />
-                {t('reg.confirmSubmit')}
-              </>
-            )}
-          </button>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.age')} *</label>
+                                <input
+                                    type="number"
+                                    required
+                                    min="0"
+                                    max="120"
+                                    value={formData.age || ''}
+                                    onChange={e => setFormData({ ...formData, age: parseInt(e.target.value) || 0 })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.gender')} *</label>
+                                <select
+                                    value={formData.gender}
+                                    onChange={e => setFormData({ ...formData, gender: e.target.value as any })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                >
+                                    <option value="Male">Male</option>
+                                    <option value="Female">Female</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.phone')} *</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="tel"
+                                    required
+                                    value={formData.phone}
+                                    onChange={e => setFormData({ ...formData, phone: e.target.value })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                />
+                                <VoiceInput onTranscript={(text) => handleVoiceInput('phone', text)} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.address')}</label>
+                            <div className="flex gap-2">
+                                <textarea
+                                    rows={2}
+                                    value={formData.address}
+                                    onChange={e => setFormData({ ...formData, address: e.target.value })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500 resize-none"
+                                />
+                                <VoiceInput onTranscript={(text) => handleVoiceInput('address', text)} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.campLocation')}</label>
+                            <input
+                                type="text"
+                                value={formData.camp_location}
+                                onChange={e => setFormData({ ...formData, camp_location: e.target.value })}
+                                placeholder={t('reg.campPlaceholder')}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.idProofType')} *</label>
+                                <select
+                                    value={formData.id_proof_type}
+                                    onChange={e => setFormData({ ...formData, id_proof_type: e.target.value })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                >
+                                    <option value="Aadhaar">{t('reg.id.aadhar')}</option>
+                                    <option value="Passport">{t('reg.id.passport')}</option>
+                                    <option value="Voter ID">{t('reg.id.voter')}</option>
+                                    <option value="Driving License">{t('reg.id.dl')}</option>
+                                    <option value="Other">{t('reg.id.other')}</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.idProofNumber')} *</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.id_proof_number}
+                                        onChange={e => setFormData({ ...formData, id_proof_number: e.target.value })}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                    />
+                                    <VoiceInput onTranscript={(text) => handleVoiceInput('id_proof_number', text)} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.emergencyName')} *</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        required
+                                        value={formData.emergency_contact_name}
+                                        onChange={e => setFormData({ ...formData, emergency_contact_name: e.target.value })}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                    />
+                                    <VoiceInput onTranscript={(text) => handleVoiceInput('emergency_contact_name', text)} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.emergencyPhone')} *</label>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="tel"
+                                        required
+                                        value={formData.emergency_contact_phone}
+                                        onChange={e => setFormData({ ...formData, emergency_contact_phone: e.target.value })}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                    />
+                                    <VoiceInput onTranscript={(text) => handleVoiceInput('emergency_contact_phone', text)} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4">
+                        <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider border-b border-gray-100 pb-2">
+                            {t('reg.medicalInfo')}
+                        </h4>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.height')} (cm)</label>
+                                <input
+                                    type="number"
+                                    value={formData.height_cm || ''}
+                                    onChange={e => setFormData({ ...formData, height_cm: parseFloat(e.target.value) || null })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                    placeholder="Est. by AI"
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.weight')} (kg)</label>
+                                <input
+                                    type="number"
+                                    value={formData.weight_kg || ''}
+                                    onChange={e => setFormData({ ...formData, weight_kg: parseFloat(e.target.value) || null })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                    placeholder="Est. by AI"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.bloodGroup')}</label>
+                            <select
+                                value={formData.blood_group || ''}
+                                onChange={e => setFormData({ ...formData, blood_group: (e.target.value || null) as any })}
+                                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                            >
+                                <option value="">Select...</option>
+                                <option value="A+">A+</option>
+                                <option value="A-">A-</option>
+                                <option value="B+">B+</option>
+                                <option value="B-">B-</option>
+                                <option value="O+">O+</option>
+                                <option value="O-">O-</option>
+                                <option value="AB+">AB+</option>
+                                <option value="AB-">AB-</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.chronic')}</label>
+                            <div className="space-y-3">
+                                <div className="flex flex-wrap gap-2">
+                                    {formData.chronic_conditions.split(', ').filter(c => c && c !== 'None').map((condition, idx) => (
+                                        <span key={idx} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-orange-100 text-orange-800 text-sm">
+                                            {condition}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const current = formData.chronic_conditions.split(', ').filter(c => c && c !== 'None');
+                                                    const newConditions = current.filter(c => c !== condition);
+                                                    setFormData({ ...formData, chronic_conditions: newConditions.length ? newConditions.join(', ') : 'None' });
+                                                }}
+                                                className="hover:text-orange-900"
+                                            >
+                                                <AlertCircle className="w-4 h-4 rotate-45" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+
+                                <select
+                                    value=""
+                                    onChange={e => {
+                                        const val = e.target.value;
+                                        if (!val) return;
+
+                                        if (val === 'Other') {
+                                            setShowOtherCondition(true);
+                                            setOtherCondition('');
+                                        } else if (val === 'None') {
+                                            setFormData({ ...formData, chronic_conditions: 'None' });
+                                            setShowOtherCondition(false);
+                                        } else {
+                                            const current = formData.chronic_conditions.split(', ').filter(c => c && c !== 'None');
+                                            if (!current.includes(val)) {
+                                                setFormData({ ...formData, chronic_conditions: [...current, val].join(', ') });
+                                            }
+                                            setShowOtherCondition(false);
+                                        }
+                                    }}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                >
+                                    <option value="">{t('reg.chronicPlaceholder') || "Add condition..."}</option>
+                                    <option value="None">None</option>
+                                    <option value="Diabetes">Diabetes</option>
+                                    <option value="Hypertension">Hypertension</option>
+                                    <option value="Asthma">Asthma</option>
+                                    <option value="Arthritis">Arthritis</option>
+                                    <option value="Other">Other (Specify)</option>
+                                </select>
+
+                                {showOtherCondition && (
+                                    <div className="flex gap-2 animate-fade-in-down">
+                                        <input
+                                            type="text"
+                                            value={otherCondition}
+                                            onChange={e => setOtherCondition(e.target.value)}
+                                            placeholder={t('reg.chronicPlaceholder') || "Please specify condition..."}
+                                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                            autoFocus
+                                            onKeyDown={e => {
+                                                if (e.key === 'Enter') {
+                                                    e.preventDefault();
+                                                    if (otherCondition.trim()) {
+                                                        const current = formData.chronic_conditions.split(', ').filter(c => c && c !== 'None');
+                                                        setFormData({ ...formData, chronic_conditions: [...current, otherCondition.trim()].join(', ') });
+                                                        setOtherCondition('');
+                                                        setShowOtherCondition(false);
+                                                    }
+                                                }
+                                            }}
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (otherCondition.trim()) {
+                                                    const current = formData.chronic_conditions.split(', ').filter(c => c && c !== 'None');
+                                                    setFormData({ ...formData, chronic_conditions: [...current, otherCondition.trim()].join(', ') });
+                                                    setOtherCondition('');
+                                                    setShowOtherCondition(false);
+                                                }
+                                            }}
+                                            className="px-3 py-2 bg-orange-600 text-white rounded-md text-sm"
+                                        >
+                                            Add
+                                        </button>
+                                        <VoiceInput onTranscript={setOtherCondition} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.allergies')}</label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={formData.allergies}
+                                    onChange={e => setFormData({ ...formData, allergies: e.target.value })}
+                                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                />
+                                <VoiceInput onTranscript={(text) => handleVoiceInput('allergies', text)} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                            </div>
+                        </div>
+
+                        {/* Medications */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.meds')}</label>
+                            <div className="space-y-3">
+                                <div className="flex flex-wrap gap-2">
+                                    {formData.current_medications.split(', ').filter(c => c).map((med, idx) => (
+                                        <span key={idx} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm">
+                                            {med}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const current = formData.current_medications.split(', ').filter(c => c);
+                                                    const newMeds = current.filter((_, i) => i !== idx);
+                                                    setFormData({ ...formData, current_medications: newMeds.join(', ') });
+                                                }}
+                                                className="hover:text-blue-900"
+                                            >
+                                                <AlertCircle className="w-4 h-4 rotate-45" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={medicationInput}
+                                        onChange={e => setMedicationInput(e.target.value)}
+                                        placeholder={t('reg.medsPlaceholder')}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                if (medicationInput.trim()) {
+                                                    const current = formData.current_medications.split(', ').filter(c => c);
+                                                    setFormData({ ...formData, current_medications: [...current, medicationInput.trim()].join(', ') });
+                                                    setMedicationInput('');
+                                                }
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (medicationInput.trim()) {
+                                                const current = formData.current_medications.split(', ').filter(c => c);
+                                                setFormData({ ...formData, current_medications: [...current, medicationInput.trim()].join(', ') });
+                                                setMedicationInput('');
+                                            }
+                                        }}
+                                        className="px-3 py-2 bg-blue-600 text-white rounded-md text-sm whitespace-nowrap"
+                                    >
+                                        Add
+                                    </button>
+                                    <VoiceInput onTranscript={setMedicationInput} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Surgeries */}
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">{t('reg.surgeries')}</label>
+                            <div className="space-y-3">
+                                <div className="flex flex-wrap gap-2">
+                                    {formData.past_surgeries.split(', ').filter(c => c).map((surg, idx) => (
+                                        <span key={idx} className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 text-red-800 text-sm">
+                                            {surg}
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const current = formData.past_surgeries.split(', ').filter(c => c);
+                                                    const newSurgs = current.filter((_, i) => i !== idx);
+                                                    setFormData({ ...formData, past_surgeries: newSurgs.join(', ') });
+                                                }}
+                                                className="hover:text-red-900"
+                                            >
+                                                <AlertCircle className="w-4 h-4 rotate-45" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                                <div className="flex gap-2">
+                                    <input
+                                        type="text"
+                                        value={surgeryInput}
+                                        onChange={e => setSurgeryInput(e.target.value)}
+                                        placeholder={t('reg.surgeriesPlaceholder')}
+                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-orange-500 focus:ring-orange-500"
+                                        onKeyDown={e => {
+                                            if (e.key === 'Enter') {
+                                                e.preventDefault();
+                                                if (surgeryInput.trim()) {
+                                                    const current = formData.past_surgeries.split(', ').filter(c => c);
+                                                    setFormData({ ...formData, past_surgeries: [...current, surgeryInput.trim()].join(', ') });
+                                                    setSurgeryInput('');
+                                                }
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (surgeryInput.trim()) {
+                                                const current = formData.past_surgeries.split(', ').filter(c => c);
+                                                setFormData({ ...formData, past_surgeries: [...current, surgeryInput.trim()].join(', ') });
+                                                setSurgeryInput('');
+                                            }
+                                        }}
+                                        className="px-3 py-2 bg-red-600 text-white rounded-md text-sm whitespace-nowrap"
+                                    >
+                                        Add
+                                    </button>
+                                    <VoiceInput onTranscript={setSurgeryInput} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="pt-6 border-t border-gray-100 flex justify-end">
+                    <button
+                        type="submit"
+                        disabled={isSubmitting}
+                        className="px-8 py-3 bg-gradient-to-r from-orange-600 to-red-600 text-white rounded-xl font-bold text-lg shadow-lg hover:shadow-xl hover:from-orange-700 hover:to-red-700 transition-all transform hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        {isSubmitting ? (
+                            <>
+                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                {t('reg.submitting')}
+                            </>
+                        ) : (
+                            <>
+                                <Save className="w-5 h-5" />
+                                {t('reg.submit')}
+                            </>
+                        )}
+                    </button>
+                </div>
+            </form>
         </div>
-      </div>
     );
-  }
-
-  return (
-    <form onSubmit={handleFormSubmit} className="space-y-6">
-      {/* 🚀 PHOTO FIRST WORKFLOW - Prominent Call to Action */}
-      <div className="bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-6 shadow-xl text-white relative overflow-hidden">
-        <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
-          <div className="flex-1 text-center md:text-left">
-            <h2 className="text-2xl font-bold mb-2 flex items-center justify-center md:justify-start gap-2">
-              <Scan className="w-6 h-6" />
-              Take Full Body Photo (Auto-fill)
-            </h2>
-            <p className="text-blue-100 mb-4">AI will estimate your Height, Weight, Age & Gender</p>
-
-            {!selfieImage ? (
-              <button
-                type="button"
-                onClick={() => setShowSelfieCapture(true)}
-                className="w-full md:w-auto bg-white text-blue-600 py-3 px-6 rounded-xl font-bold shadow-lg hover:bg-blue-50 hover:scale-105 transition-all flex items-center justify-center gap-2 text-lg"
-              >
-                <Camera className="w-6 h-6" />
-                {t('reg.takeSelfie')}
-              </button>
-            ) : (
-              <div className="flex items-center gap-4 bg-white/20 backdrop-blur-md p-3 rounded-xl border border-white/30">
-                <img
-                  src={selfieImage}
-                  alt="Captured"
-                  className="w-16 h-16 rounded-lg object-cover border-2 border-white"
-                />
-                <div className="text-left">
-                  <p className="font-semibold flex items-center gap-1">
-                    <CheckCircle className="w-4 h-4 text-green-300" />
-                    Photo Captured
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelfieImage(null);
-                      setFaceDescriptor(null);
-                      // Optional: Clear auto-filled fields if photo is removed? 
-                      // Maybe better to keep them unless user changes.
-                    }}
-                    className="text-xs text-blue-100 hover:text-white underline mt-1"
-                  >
-                    Retake Photo
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-          <div className="hidden md:block">
-            <Sparkles className="w-24 h-24 text-white/10" />
-          </div>
-        </div>
-
-        {/* Decorative background elements */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16"></div>
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-2xl -ml-10 -mb-10"></div>
-      </div>
-
-
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2 border-b pb-4">
-          <UserPlus className="w-6 h-6 text-blue-600" />
-          {t('reg.personalInfo')}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.fullName')}</label>
-            <input
-              type="text"
-              name="full_name"
-              required
-              value={formData.full_name}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.age')}</label>
-            <div className="relative">
-              <input
-                type="number"
-                name="age"
-                required
-                min="1"
-                max="150"
-                value={formData.age}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent transition-all text-lg ${autoFilledFields.includes('age')
-                  ? 'border-green-300 bg-green-50 focus:ring-green-500'
-                  : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-              />
-              {autoFilledFields.includes('age') && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-green-700 font-medium bg-white px-2 py-1 rounded-full shadow-sm border border-green-200">
-                  <Sparkles className="w-3 h-3" />
-                  {t('reg.autoFilled')}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.gender')}</label>
-            <div className="relative">
-              <select
-                name="gender"
-                required
-                value={formData.gender}
-                onChange={handleChange}
-                className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent transition-all text-lg appearance-none ${autoFilledFields.includes('gender')
-                  ? 'border-green-300 bg-green-50 focus:ring-green-500'
-                  : 'border-gray-300 focus:ring-blue-500'
-                  }`}
-              >
-                <option value="Male">{t('reg.gender.male')}</option>
-                <option value="Female">{t('reg.gender.female')}</option>
-                <option value="Other">{t('reg.gender.other')}</option>
-              </select>
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                <ChevronRight className="w-5 h-5 rotate-90" />
-              </div>
-              {autoFilledFields.includes('gender') && (
-                <div className="absolute right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-green-700 font-medium bg-white px-2 py-1 rounded-full shadow-sm border border-green-200 pointer-events-none">
-                  <Sparkles className="w-3 h-3" />
-                  {t('reg.autoFilled')}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.phone')}</label>
-            <input
-              type="tel"
-              name="phone"
-              required
-              value={formData.phone}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.address')}</label>
-            <input
-              type="text"
-              name="address"
-              required
-              value={formData.address}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.campLocation')}</label>
-            <input
-              type="text"
-              name="camp_location"
-              value={formData.camp_location}
-              onChange={handleChange}
-              placeholder={t('reg.campPlaceholder')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.idProofType')}</label>
-              <select
-                name="id_proof_type"
-                required
-                value={formData.id_proof_type}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-              >
-                <option value="Aadhar">{t('reg.id.aadhar')}</option>
-                <option value="Passport">{t('reg.id.passport')}</option>
-                <option value="Voter ID">{t('reg.id.voter')}</option>
-                <option value="Driving License">{t('reg.id.dl')}</option>
-                <option value="Other">{t('reg.id.other')}</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.idProofNumber')}</label>
-              <input
-                type="text"
-                name="id_proof_number"
-                required
-                value={formData.id_proof_number}
-                onChange={handleChange}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-              />
-            </div>
-          </div>
-
-          <div>
-            {/* Empty column placeholder or used if needed */}
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.emergencyName')}</label>
-            <input
-              type="text"
-              name="emergency_contact_name"
-              required
-              value={formData.emergency_contact_name}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.emergencyPhone')}</label>
-            <input
-              type="tel"
-              name="emergency_contact_phone"
-              required
-              value={formData.emergency_contact_phone}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-        </div>
-      </div>
-
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        <h3 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2 border-b pb-4">
-          <Heart className="w-6 h-6 text-red-600" />
-          {t('reg.medicalInfo')}
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.bloodGroup')}</label>
-            <select
-              name="blood_group"
-              value={formData.blood_group}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            >
-              <option value="">{t('reg.selectBloodGroup')}</option>
-              <option value="A+">A+</option>
-              <option value="A-">A-</option>
-              <option value="B+">B+</option>
-              <option value="B-">B-</option>
-              <option value="AB+">AB+</option>
-              <option value="AB-">AB-</option>
-              <option value="O+">O+</option>
-              <option value="O-">O-</option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.height')}</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  name="height_cm"
-                  step="0.1"
-                  value={formData.height_cm}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent transition-all text-lg ${autoFilledFields.includes('height_cm')
-                      ? 'border-green-300 bg-green-50 focus:ring-green-500'
-                      : 'border-gray-300 focus:ring-blue-500'
-                    }`}
-                />
-                {autoFilledFields.includes('height_cm') && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-green-700 font-medium bg-white px-2 py-1 rounded-full shadow-sm border border-green-200">
-                    <Sparkles className="w-3 h-3" />
-                    {t('reg.autoFilled')}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.weight')}</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  name="weight_kg"
-                  step="0.1"
-                  value={formData.weight_kg}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:border-transparent transition-all text-lg ${autoFilledFields.includes('weight_kg')
-                      ? 'border-green-300 bg-green-50 focus:ring-green-500'
-                      : 'border-gray-300 focus:ring-blue-500'
-                    }`}
-                />
-                {autoFilledFields.includes('weight_kg') && (
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-xs text-green-700 font-medium bg-white px-2 py-1 rounded-full shadow-sm border border-green-200">
-                    <Sparkles className="w-3 h-3" />
-                    {t('reg.autoFilled')}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.vaccination')}</label>
-            <input
-              type="text"
-              name="vaccination_status"
-              value={formData.vaccination_status}
-              onChange={handleChange}
-              placeholder={t('reg.vaccinationPlaceholder')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.allergies')}</label>
-            <textarea
-              name="allergies"
-              value={formData.allergies}
-              onChange={handleChange}
-              rows={2}
-              placeholder={t('reg.allergiesPlaceholder')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.chronic')}</label>
-            <textarea
-              name="chronic_conditions"
-              value={formData.chronic_conditions}
-              onChange={handleChange}
-              rows={2}
-              placeholder={t('reg.chronicPlaceholder')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.meds')}</label>
-            <textarea
-              name="current_medications"
-              value={formData.current_medications}
-              onChange={handleChange}
-              rows={2}
-              placeholder={t('reg.medsPlaceholder')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.surgeries')}</label>
-            <textarea
-              name="past_surgeries"
-              value={formData.past_surgeries}
-              onChange={handleChange}
-              rows={2}
-              placeholder={t('reg.surgeriesPlaceholder')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">{t('reg.notes')}</label>
-            <textarea
-              name="special_notes"
-              value={formData.special_notes}
-              onChange={handleChange}
-              rows={2}
-              placeholder={t('reg.notesPlaceholder')}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg"
-            />
-          </div>
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading || !selfieImage}
-        className="w-full bg-blue-600 text-white py-4 px-6 rounded-xl hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-bold text-xl flex items-center justify-center gap-3 transition-colors shadow-lg hover:shadow-xl"
-      >
-        {loading ? (
-          <>
-            <Loader2 className="w-6 h-6 animate-spin" />
-            {t('reg.submitting')}
-          </>
-        ) : (
-          <>
-            <Eye className="w-6 h-6" />
-            {t('reg.reviewSubmit')}
-          </>
-        )}
-      </button>
-
-      {showSelfieCapture && (
-        <SelfieCapture
-          onCapture={(imageData, descriptor, estimate) => {
-            setSelfieImage(imageData);
-            setFaceDescriptor(descriptor);
-
-            // Auto-fill logic for ALL 4 fields
-            const newFilledFields: string[] = [];
-            const updates: Partial<FormData> = {};
-
-            if (estimate?.age) {
-              updates.age = estimate.age.toString();
-              newFilledFields.push('age');
-            }
-            if (estimate?.gender) {
-              // Map to form gender values
-              const g = estimate.gender.toLowerCase();
-              if (g === 'male') updates.gender = 'Male';
-              else if (g === 'female') updates.gender = 'Female';
-              else updates.gender = 'Other';
-              newFilledFields.push('gender');
-            }
-            if (estimate?.height) {
-              updates.height_cm = estimate.height.toString();
-              newFilledFields.push('height_cm');
-            }
-            if (estimate?.weight) {
-              updates.weight_kg = estimate.weight.toString();
-              newFilledFields.push('weight_kg');
-            }
-
-            if (Object.keys(updates).length > 0) {
-              setFormData(prev => ({ ...prev, ...updates }));
-              setAutoFilledFields(newFilledFields);
-            }
-
-            setShowSelfieCapture(false);
-          }}
-          onClose={() => setShowSelfieCapture(false)}
-        />
-      )}
-    </form>
-  );
 }

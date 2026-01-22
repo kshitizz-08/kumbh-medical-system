@@ -219,6 +219,9 @@ const DICT: Record<Language, Dictionary> = {
     // Common
     'common.close': 'Close',
 
+    'common.voiceNotSupported': 'Voice input is not supported in this browser.',
+    'common.total': 'total',
+
     // Selfie capture
     'selfie.loadingModels': 'Loading face detection models...',
     'selfie.failModels':
@@ -240,11 +243,6 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.landmarksOk': 'Face detected. Landmarks unavailable, you may capture.',
     'selfie.ready': '✓ Face detected. Ready to capture!',
     'selfie.mouthOpen': 'Please keep your mouth closed (not talking).',
-    'selfie.estimate.age': 'Est. Age',
-    'selfie.estimate.gender': 'Est. Gender',
-    'reg.photoFirst': 'Start with Photo (Auto-fill)',
-    'reg.photoFirstDesc': 'Take a photo to automatically fill age and gender',
-    'reg.autoFilled': 'Auto-filled from photo',
   },
   hi: {
     'app.title': 'नाशिक कुंभ मेला – मेडिकल सेवा',
@@ -314,7 +312,7 @@ const DICT: Record<Language, Dictionary> = {
     'reg.allergies': 'एलर्जी',
     'reg.allergiesPlaceholder': 'खाने/दवाओं की एलर्जी आदि',
     'reg.chronic': 'पुरानी बीमारियाँ',
-    'reg.chronicPlaceholder': 'डायबिटीज, BP, अस्थमा आदि',
+    'reg.chronicPlaceholder': 'बीमारी चुनें',
     'reg.meds': 'वर्तमान दवाएँ',
     'reg.medsPlaceholder': 'दवाओं के नाम और मात्रा लिखें',
     'reg.surgeries': 'पिछली सर्जरी',
@@ -435,6 +433,9 @@ const DICT: Record<Language, Dictionary> = {
 
     'common.close': 'बंद करें',
 
+    'common.voiceNotSupported': 'इस ब्राउज़र में वॉयस इनपुट समर्थित नहीं है।',
+    'common.total': 'कुल',
+
     'selfie.loadingModels': 'फेस मॉडल लोड हो रहे हैं...',
     'selfie.failModels': 'फेस मॉडल लोड नहीं हो पाए। इंटरनेट जांचें और पेज रिफ्रेश करें।',
     'selfie.failCamera': 'कैमरा नहीं खुल पाया। कृपया कैमरा अनुमति दें।',
@@ -454,11 +455,6 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.landmarksOk': 'चेहरा मिला। आप फोटो ले सकते हैं।',
     'selfie.ready': '✓ चेहरा मिला। फोटो लें!',
     'selfie.mouthOpen': 'कृपया मुंह बंद रखें।',
-    'selfie.estimate.age': 'अनुमानित उम्र',
-    'selfie.estimate.gender': 'अनुमानित लिंग',
-    'reg.photoFirst': 'फोटो से शुरू करें (ऑटो-फिल)',
-    'reg.photoFirstDesc': 'उम्र और लिंग स्वचालित रूप से भरने के लिए फोटो लें',
-    'reg.autoFilled': 'फोटो से भरा गया',
   },
   mr: {
     'app.title': 'नाशिक कुंभ मेळा – मेडिकल सेवा',
@@ -528,7 +524,7 @@ const DICT: Record<Language, Dictionary> = {
     'reg.allergies': 'अलर्जी',
     'reg.allergiesPlaceholder': 'अन्न/औषधांची अलर्जी इ.',
     'reg.chronic': 'दीर्घकालीन आजार',
-    'reg.chronicPlaceholder': 'मधुमेह, BP, अस्थमा इ.',
+    'reg.chronicPlaceholder': 'बीमारी चुनें',
     'reg.meds': 'सध्याची औषधे',
     'reg.medsPlaceholder': 'औषधे व डोस लिहा',
     'reg.surgeries': 'पूर्वीची शस्त्रक्रिया',
@@ -649,6 +645,9 @@ const DICT: Record<Language, Dictionary> = {
 
     'common.close': 'बंद करा',
 
+    'common.voiceNotSupported': 'या ब्राउझरमध्ये व्हॉइस इनपुट समर्थित नाही.',
+    'common.total': 'एकूण',
+
     'selfie.loadingModels': 'फेस मॉडेल्स लोड होत आहेत...',
     'selfie.failModels': 'फेस मॉडेल्स लोड झाले नाहीत. इंटरनेट तपासा आणि पेज रिफ्रेश करा.',
     'selfie.failCamera': 'कॅमेरा उघडता आला नाही. कृपया कॅमेरा परवानगी द्या.',
@@ -668,11 +667,6 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.landmarksOk': 'चेहरा आढळला. फोटो घेऊ शकता.',
     'selfie.ready': '✓ चेहरा आढळला. फोटो घ्या!',
     'selfie.mouthOpen': 'कृपया तोंड बंद ठेवा.',
-    'selfie.estimate.age': 'अंदाजित वय',
-    'selfie.estimate.gender': 'अंदाजित लिंग',
-    'reg.photoFirst': 'फोटोने सुरुवात करा (ऑटो-फिल)',
-    'reg.photoFirstDesc': 'वय आणि लिंग आपोआप भरण्यासाठी फोटो घ्या',
-    'reg.autoFilled': 'फोटोवरून भरले',
   },
 };
 

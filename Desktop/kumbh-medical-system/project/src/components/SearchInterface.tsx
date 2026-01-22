@@ -188,7 +188,7 @@ export default function SearchInterface({ onSelectDevotee }: { onSelectDevotee: 
                 {t('search.found', { count: filteredResults.length })}
                 {results.length !== filteredResults.length && (
                   <span className="text-gray-400 ml-2">
-                    ({results.length} {t('search.found', { count: results.length }).includes('result') ? 'total' : 'कुल'})
+                    ({results.length} {t('common.total')})
                   </span>
                 )}
               </div>
