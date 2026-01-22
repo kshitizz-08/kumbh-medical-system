@@ -36,7 +36,7 @@ router.post('/report', async (req, res) => {
         const person = new LostPerson({
             name,
             age,
-            gender,
+            gender: gender ? gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase() : 'Unknown',
             photo_url,
             face_descriptor: Object.values(face_descriptor), // Ensure array
             status,
@@ -49,7 +49,7 @@ router.post('/report', async (req, res) => {
         res.status(201).json(person);
     } catch (error) {
         console.error('Report Error:', error);
-        res.status(500).json({ error: 'Failed to report person' });
+        res.status(500).json({ error: `Failed to report person: ${error.message}` });
     }
 });
 

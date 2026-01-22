@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Devotee, MedicalRecord, MedicalIncident, getIncidents } from '../lib/api';
-import { X, AlertCircle, User, MapPin, Heart, Activity, FileText, Clock } from 'lucide-react';
+import { X, AlertCircle, User, Heart, Activity, FileText, Clock } from 'lucide-react';
 import { useI18n } from '../i18n/i18n';
 
 type ProfileProps = {
@@ -89,26 +89,10 @@ export default function MedicalProfile({ devotee, refreshToken, onClose, onRecor
                   <dt className="text-gray-600">{t('profile.phone')}</dt>
                   <dd className="font-medium text-gray-900">{devotee.phone}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-gray-600">{t('profile.idType')}</dt>
-                  <dd className="font-medium text-gray-900">{devotee.id_proof_type}</dd>
-                </div>
-                <div className="flex justify-between">
-                  <dt className="text-gray-600">{t('profile.idNumber')}</dt>
-                  <dd className="font-medium text-gray-900">{devotee.id_proof_number}</dd>
-                </div>
+
               </dl>
-              <div className="mt-3 pt-3 border-t border-gray-300">
-                <dt className="text-gray-600 text-sm mb-1">{t('profile.address')}</dt>
-                <dd className="text-sm text-gray-900">{devotee.address}</dd>
-              </div>
-              {devotee.camp_location && (
-                <div className="mt-2 flex items-center gap-2 text-sm">
-                  <MapPin className="w-4 h-4 text-gray-600" />
-                  <span className="text-gray-600">{t('profile.camp')}</span>
-                  <span className="font-medium text-gray-900">{devotee.camp_location}</span>
-                </div>
-              )}
+
+
             </div>
 
             <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -135,12 +119,7 @@ export default function MedicalProfile({ devotee, refreshToken, onClose, onRecor
                     {medicalRecord?.weight_kg ? `${medicalRecord.weight_kg} kg` : t('profile.notSpecified')}
                   </dd>
                 </div>
-                {medicalRecord?.vaccination_status && (
-                  <div className="pt-2 border-t border-gray-300">
-                    <dt className="text-gray-600 mb-1">{t('profile.vaccinations')}</dt>
-                    <dd className="text-gray-900">{medicalRecord.vaccination_status}</dd>
-                  </div>
-                )}
+
               </dl>
             </div>
           </div>
@@ -200,13 +179,12 @@ export default function MedicalProfile({ devotee, refreshToken, onClose, onRecor
                   <div key={incident.id} className="bg-gray-50 rounded-lg p-3 border border-gray-200">
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs px-2 py-1 rounded font-medium ${
-                          incident.incident_type === 'Emergency'
-                            ? 'bg-red-100 text-red-700'
-                            : incident.incident_type === 'Follow-up'
+                        <span className={`text-xs px-2 py-1 rounded font-medium ${incident.incident_type === 'Emergency'
+                          ? 'bg-red-100 text-red-700'
+                          : incident.incident_type === 'Follow-up'
                             ? 'bg-blue-100 text-blue-700'
                             : 'bg-green-100 text-green-700'
-                        }`}>
+                          }`}>
                           {incident.incident_type}
                         </span>
                         {incident.follow_up_required && (
@@ -222,38 +200,38 @@ export default function MedicalProfile({ devotee, refreshToken, onClose, onRecor
                     </div>
                     <div className="space-y-1 text-sm">
                       <div>
-                          <span className="font-medium text-gray-700">{t('profile.symptoms')}</span>
+                        <span className="font-medium text-gray-700">{t('profile.symptoms')}</span>
                         <span className="ml-2 text-gray-900">{incident.symptoms}</span>
                       </div>
                       {incident.diagnosis && (
                         <div>
-                            <span className="font-medium text-gray-700">{t('profile.diagnosis')}</span>
+                          <span className="font-medium text-gray-700">{t('profile.diagnosis')}</span>
                           <span className="ml-2 text-gray-900">{incident.diagnosis}</span>
                         </div>
                       )}
                       {incident.treatment_given && (
                         <div>
-                            <span className="font-medium text-gray-700">{t('profile.treatment')}</span>
+                          <span className="font-medium text-gray-700">{t('profile.treatment')}</span>
                           <span className="ml-2 text-gray-900">{incident.treatment_given}</span>
                         </div>
                       )}
                       {incident.medications_prescribed && (
                         <div>
-                            <span className="font-medium text-gray-700">{t('profile.medications')}</span>
+                          <span className="font-medium text-gray-700">{t('profile.medications')}</span>
                           <span className="ml-2 text-gray-900">{incident.medications_prescribed}</span>
                         </div>
                       )}
                       <div className="flex gap-4 text-xs text-gray-600 pt-1 border-t border-gray-200 mt-2">
-                          <span>
-                            {t('profile.doctor')} {incident.attending_doctor}
-                          </span>
-                          <span>
-                            {t('profile.center')} {incident.medical_center}
-                          </span>
+                        <span>
+                          {t('profile.doctor')} {incident.attending_doctor}
+                        </span>
+                        <span>
+                          {t('profile.center')} {incident.medical_center}
+                        </span>
                       </div>
                       {incident.follow_up_notes && (
                         <div className="mt-2 pt-2 border-t border-gray-200">
-                            <span className="font-medium text-gray-700 text-xs">{t('profile.followUpNotes')}</span>
+                          <span className="font-medium text-gray-700 text-xs">{t('profile.followUpNotes')}</span>
                           <p className="text-xs text-gray-900 mt-1">{incident.follow_up_notes}</p>
                         </div>
                       )}

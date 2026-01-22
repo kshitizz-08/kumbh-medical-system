@@ -63,7 +63,7 @@ router.post('/', async (req, res) => {
           chronic_conditions: req.body.chronic_conditions || '',
           current_medications: req.body.current_medications || '',
           past_surgeries: req.body.past_surgeries || '',
-          vaccination_status: req.body.vaccination_status || '',
+
           special_notes: req.body.special_notes || '',
         },
       ],

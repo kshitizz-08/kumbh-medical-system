@@ -81,9 +81,9 @@ export default function LostFoundDashboard() {
             alert('Report submitted successfully');
             setView('home');
             loadRecent();
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert('Failed to submit report');
+            alert(`Failed to submit report: ${e.message}`);
         } finally {
             setIsSubmitting(false);
         }

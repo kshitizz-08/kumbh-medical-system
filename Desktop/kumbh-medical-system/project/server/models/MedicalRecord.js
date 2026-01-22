@@ -13,7 +13,7 @@ const medicalRecordSchema = new mongoose.Schema(
     chronic_conditions: { type: String, default: '' },
     current_medications: { type: String, default: '' },
     past_surgeries: { type: String, default: '' },
-    vaccination_status: { type: String, default: '' },
+
     special_notes: { type: String, default: '' },
   },
   { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } }

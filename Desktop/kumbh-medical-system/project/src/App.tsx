@@ -10,7 +10,6 @@ const MedicalProfile = lazy(() => import('./components/MedicalProfile'));
 const IncidentForm = lazy(() => import('./components/IncidentForm'));
 const ChatBot = lazy(() => import('./components/ChatBot'));
 const WeatherWidget = lazy(() => import('./components/WeatherWidget'));
-const WeatherWidget = lazy(() => import('./components/WeatherWidget'));
 const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'));
 const LostFoundDashboard = lazy(() => import('./components/LostFoundDashboard'));
 

@@ -85,7 +85,7 @@ export type MedicalRecord = {
   chronic_conditions: string;
   current_medications: string;
   past_surgeries: string;
-  vaccination_status: string;
+
   special_notes: string;
   created_at: string;
   updated_at: string;
@@ -142,7 +142,7 @@ export type CreateDevoteePayload = {
   chronic_conditions: string;
   current_medications: string;
   past_surgeries: string;
-  vaccination_status: string;
+
   special_notes: string;
   photo_url: string | null;
   face_descriptor: number[] | null;

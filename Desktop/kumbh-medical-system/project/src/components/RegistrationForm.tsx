@@ -34,7 +34,7 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
         chronic_conditions: '',
         current_medications: '',
         past_surgeries: '',
-        vaccination_status: 'Fully Vaccinated',
+
         special_notes: '',
         photo_url: null,
         face_descriptor: null,

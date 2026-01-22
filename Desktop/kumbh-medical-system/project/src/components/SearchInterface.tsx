@@ -230,11 +230,7 @@ export default function SearchInterface({ onSelectDevotee }: { onSelectDevotee: 
                           </div>
                         )}
                       </div>
-                      {result.camp_location && (
-                        <div className="text-sm text-gray-600 mt-1">
-                          <span className="font-medium">{t('search.camp')}</span> {result.camp_location}
-                        </div>
-                      )}
+
                     </div>
                   </div>
                 </button>
