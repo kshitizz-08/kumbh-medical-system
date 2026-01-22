@@ -45,6 +45,7 @@ const DICT: Record<Language, Dictionary> = {
     'nav.home': 'Home',
     'nav.register': 'Register',
     'nav.search': 'Search',
+    'nav.analytics': 'Analytics',
     'nav.ariaMain': 'Main navigation',
     'lang.label': 'Language',
     'lang.en': 'EN',
@@ -222,6 +223,17 @@ const DICT: Record<Language, Dictionary> = {
     'incident.submit': 'Record Incident',
     'incident.fail': ({ message }: any) => `Failed to record incident: ${message}`,
 
+    // Analytics
+    'analytics.title': 'Health Analytics Dashboard',
+    'analytics.desc': 'Real-time insights on pilgrim health and crowd demographics',
+    'analytics.totalYatris': 'Total Pilgrims',
+    'analytics.highRisk': 'High Risk (Medical)',
+    'analytics.seniorCitizens': 'Senior Citizens (60+)',
+    'analytics.recentActivity': 'Recent Registrations',
+    'analytics.ageDist': 'Age Distribution',
+    'analytics.genderDist': 'Gender Ratio',
+    'analytics.conditions': 'Prevalent Medical Conditions',
+
     // Common
     'common.close': 'Close',
     'common.add': 'Add',
@@ -276,6 +288,7 @@ const DICT: Record<Language, Dictionary> = {
     'nav.home': 'होम',
     'nav.register': 'रजिस्ट्रेशन',
     'nav.search': 'खोज',
+    'nav.analytics': 'एनालिटिक्स',
     'nav.ariaMain': 'मुख्य नेविगेशन',
     'lang.label': 'भाषा',
     'lang.en': 'EN',
@@ -447,6 +460,17 @@ const DICT: Record<Language, Dictionary> = {
     'incident.submit': 'घटना दर्ज करें',
     'incident.fail': ({ message }: any) => `घटना दर्ज नहीं हुई: ${message}`,
 
+    // Analytics
+    'analytics.title': 'स्वास्थ्य एनालिटिक्स डैशबोर्ड',
+    'analytics.desc': 'तीर्थयात्री स्वास्थ्य और भीड़ जनसांख्यिकी पर रीयल-टाइम अंतर्दृष्टि',
+    'analytics.totalYatris': 'कुल तीर्थयात्री',
+    'analytics.highRisk': 'उच्च जोखिम (मेडिकल)',
+    'analytics.seniorCitizens': 'वरिष्ठ नागरिक (60+)',
+    'analytics.recentActivity': 'हालिया पंजीकरण',
+    'analytics.ageDist': 'आयु वितरण',
+    'analytics.genderDist': 'लिंग अनुपात',
+    'analytics.conditions': 'प्रमुख चिकित्सा स्थितियां',
+
     'common.close': 'बंद करें',
     'common.add': 'जोड़ें',
     'common.voiceNotSupported': 'इस ब्राउज़र में वॉयस इनपुट समर्थित नहीं है।',
@@ -498,6 +522,7 @@ const DICT: Record<Language, Dictionary> = {
     'nav.home': 'होम',
     'nav.register': 'नोंदणी',
     'nav.search': 'शोध',
+    'nav.analytics': 'एनालिटिक्स',
     'nav.ariaMain': 'मुख्य नेव्हिगेशन',
     'lang.label': 'भाषा',
     'lang.en': 'EN',
@@ -668,6 +693,17 @@ const DICT: Record<Language, Dictionary> = {
     'incident.saving': 'सेव होत आहे...',
     'incident.submit': 'घटना नोंदवा',
     'incident.fail': ({ message }: any) => `घटना नोंदली गेली नाही: ${message}`,
+
+    // Analytics
+    'analytics.title': 'आरोग्य एनालिटिक्स डॅशबोर्ड',
+    'analytics.desc': 'यात्रेकरूंचे आरोग्य आणि गर्दीच्या आकडेवारीवर रिअल-टाइम माहिती',
+    'analytics.totalYatris': 'एकूण यात्रेकरू',
+    'analytics.highRisk': 'उच्च धोका (वैद्यकीय)',
+    'analytics.seniorCitizens': 'ज्येष्ठ नागरिक (60+)',
+    'analytics.recentActivity': 'अलीकडील नोंदणी',
+    'analytics.ageDist': 'वय वितरण',
+    'analytics.genderDist': 'लिंग गुणोत्तर',
+    'analytics.conditions': 'प्रमुख वैद्यकीय स्थिती',
 
     'common.close': 'बंद करा',
     'common.add': 'जोडा',

@@ -6,6 +6,7 @@ import devoteeRoutes from './routes/devotees.js';
 import incidentRoutes from './routes/incidents.js';
 import chatbotRoutes from './routes/chatbot.js';
 import weatherRoutes from './routes/weather.js';
+import { analyticsRouter } from './routes/analytics.js';
 
 dotenv.config();
 
@@ -30,6 +31,7 @@ app.use('/api/devotees', devoteeRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/chatbot', chatbotRoutes);
 app.use('/api/weather', weatherRoutes);
+app.use('/api/analytics', analyticsRouter);
 
 // SERVE STATIC FILES (This fixes "Cannot GET /")
 import path from 'path';

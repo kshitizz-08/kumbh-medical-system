@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense, useCallback, memo } from 'react';
-import { UserPlus, Search, Heart, CheckCircle2, Home, Loader2, Copy, Check, X } from 'lucide-react';
+import { UserPlus, Search, Heart, CheckCircle2, Home, Loader2, Copy, Check, X, BarChart3 } from 'lucide-react';
 import { Devotee, MedicalRecord } from './lib/api';
 import { useI18n } from './i18n/i18n';
 
@@ -10,6 +10,7 @@ const MedicalProfile = lazy(() => import('./components/MedicalProfile'));
 const IncidentForm = lazy(() => import('./components/IncidentForm'));
 const ChatBot = lazy(() => import('./components/ChatBot'));
 const WeatherWidget = lazy(() => import('./components/WeatherWidget'));
+const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'));
 
 // Loading fallback component
 const ComponentLoader = memo(() => (
@@ -19,7 +20,7 @@ const ComponentLoader = memo(() => (
 ));
 ComponentLoader.displayName = 'ComponentLoader';
 
-type View = 'home' | 'register' | 'search';
+type View = 'home' | 'register' | 'search' | 'analytics';
 type SelectedDevotee = Devotee & { medical_records: MedicalRecord | null };
 
 function App() {
@@ -118,6 +119,17 @@ function App() {
                 >
                   <Search className="w-4 h-4" aria-hidden="true" />
                   <span>{t('nav.search')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('analytics')}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 border-l border-slate-200 transition-colors ${currentView === 'analytics'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-700 hover:bg-white'
+                    }`}
+                >
+                  <BarChart3 className="w-4 h-4" aria-hidden="true" />
+                  <span>{t('nav.analytics')}</span>
                 </button>
               </nav>
 
@@ -333,10 +345,15 @@ function App() {
             <Suspense fallback={<ComponentLoader />}>
               <SearchInterface
                 onSelectDevotee={handleSelectDevotee}
-                onQuickIncident={(devotee) => handleRecordIncident(devotee.id, devotee.full_name)}
               />
             </Suspense>
           </div>
+        )}
+
+        {currentView === 'analytics' && (
+          <Suspense fallback={<ComponentLoader />}>
+            <AnalyticsDashboard />
+          </Suspense>
         )}
       </main>
 
