@@ -91,6 +91,24 @@ export type MedicalRecord = {
   updated_at: string;
 };
 
+export type LostPerson = {
+  _id?: string;
+  name: string;
+  age?: number;
+  gender: string;
+  photo_url: string;
+  status: 'missing' | 'found' | 'reunited';
+  contact_info?: {
+    name: string;
+    phone: string;
+    relationship: string;
+  };
+  last_seen_location?: string;
+  current_location?: string;
+  created_at?: string;
+  match_similarity?: number; // Added when matching
+};
+
 export type MedicalIncident = {
   id: string;
   devotee_id: string;
@@ -175,4 +193,29 @@ export function getIncidents(devoteeId: string) {
   const params = new URLSearchParams({ devoteeId });
   return request<MedicalIncident[]>(`/incidents?${params.toString()}`);
 }
+
+// Lost & Found
+export const reportLostFound = async (data: any) => {
+  return request<LostPerson>('/lost-found/report', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+};
+
+export const matchFace = async (descriptor: number[], statusFilter?: string) => {
+  return request<{ matches: { person: LostPerson; distance: number; similarity: number }[] }>('/lost-found/match', {
+    method: 'POST',
+    body: JSON.stringify({
+      face_descriptor: descriptor,
+      status_filter: statusFilter
+    }),
+  });
+};
+
+export const getLostFoundList = async (status?: string) => {
+  const url = status
+    ? `/lost-found/list?status=${status}`
+    : `/lost-found/list`;
+  return request<LostPerson[]>(url);
+};
 

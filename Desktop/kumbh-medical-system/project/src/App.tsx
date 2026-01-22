@@ -10,7 +10,9 @@ const MedicalProfile = lazy(() => import('./components/MedicalProfile'));
 const IncidentForm = lazy(() => import('./components/IncidentForm'));
 const ChatBot = lazy(() => import('./components/ChatBot'));
 const WeatherWidget = lazy(() => import('./components/WeatherWidget'));
+const WeatherWidget = lazy(() => import('./components/WeatherWidget'));
 const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'));
+const LostFoundDashboard = lazy(() => import('./components/LostFoundDashboard'));
 
 // Loading fallback component
 const ComponentLoader = memo(() => (
@@ -20,7 +22,7 @@ const ComponentLoader = memo(() => (
 ));
 ComponentLoader.displayName = 'ComponentLoader';
 
-type View = 'home' | 'register' | 'search' | 'analytics';
+type View = 'home' | 'register' | 'search' | 'analytics' | 'lost-found';
 type SelectedDevotee = Devotee & { medical_records: MedicalRecord | null };
 
 function App() {
@@ -130,6 +132,17 @@ function App() {
                 >
                   <BarChart3 className="w-4 h-4" aria-hidden="true" />
                   <span>{t('nav.analytics')}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('lost-found')}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 border-l border-slate-200 transition-colors ${currentView === 'lost-found'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-700 hover:bg-white'
+                    }`}
+                >
+                  <Search className="w-4 h-4" aria-hidden="true" />
+                  <span>Lost & Found</span>
                 </button>
               </nav>
 
@@ -353,6 +366,12 @@ function App() {
         {currentView === 'analytics' && (
           <Suspense fallback={<ComponentLoader />}>
             <AnalyticsDashboard />
+          </Suspense>
+        )}
+
+        {currentView === 'lost-found' && (
+          <Suspense fallback={<ComponentLoader />}>
+            <LostFoundDashboard />
           </Suspense>
         )}
       </main>
