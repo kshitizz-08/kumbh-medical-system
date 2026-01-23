@@ -27,7 +27,17 @@ router.post('/analyze', async (req, res) => {
 
         const { GoogleGenerativeAI } = await import('@google/generative-ai');
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+
+        // List of models to try in order of preference/likelihood of free tier availability
+        const modelsToTry = [
+            "gemini-2.0-flash-exp",
+            "gemini-2.0-flash",
+            "gemini-flash-latest",
+            "gemini-1.5-flash"
+        ];
+
+        let result = null;
+        let lastError = null;
 
         const prompt = `Analyze this image of a person. Estimate their:
         1. Age (number)
@@ -45,7 +55,25 @@ router.post('/analyze', async (req, res) => {
             }
         };
 
-        const result = await model.generateContent([prompt, imagePart]);
+        // Try models sequentially
+        for (const modelName of modelsToTry) {
+            try {
+                console.log(`Attempting analysis with model: ${modelName}`);
+                const model = genAI.getGenerativeModel({ model: modelName });
+                result = await model.generateContent([prompt, imagePart]);
+                console.log(`Success with model: ${modelName}`);
+                break;
+            } catch (error) {
+                console.warn(`Model ${modelName} failed:`, error.message);
+                lastError = error;
+                // Continue to next model
+            }
+        }
+
+        if (!result) {
+            throw new Error(`All Gemini models failed. Last error: ${lastError?.message}`);
+        }
+
         const responseText = result.response.text();
 
         // Clean up response if it wraps in markdown
