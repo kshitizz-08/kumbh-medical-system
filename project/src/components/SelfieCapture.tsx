@@ -32,12 +32,20 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
   } | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedDescriptor, setCapturedDescriptor] = useState<number[] | null>(null);
-  const [capturedDemographics, setCapturedDemographics] = useState<{
-    age?: number;
-    gender?: 'male' | 'female';
-    estimatedHeight?: number;
-    estimatedWeight?: number;
-  } | null>(null);
+
+  // Refactor demographics to be fully editable state
+  const [editableDemographics, setEditableDemographics] = useState<{
+    age: string;
+    gender: 'male' | 'female';
+    estimatedHeight: string;
+    estimatedWeight: string;
+  }>({
+    age: '',
+    gender: 'male',
+    estimatedHeight: '',
+    estimatedWeight: ''
+  });
+
   const detectionIntervalRef = useRef<number | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
@@ -73,20 +81,6 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
         if (!faceModelsLoaded) {
           throw new Error('Failed to load face detection models from all sources');
         }
-
-        // Load MoveNet pose detection model (optional) - TEMPORARILY DISABLED for debugging
-        /* try {
-          const model = poseDetection.SupportedModels.MoveNet;
-          const detectorConfig = {
-            modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
-          };
-          const detector = await poseDetection.createDetector(model, detectorConfig);
-          poseDetectorRef.current = detector;
-          setPoseModelLoaded(true);
-        } catch (poseErr) {
-          console.warn('Pose model loading failed, will use fallback estimation:', poseErr);
-          // Pose detection is optional - continue without it
-        } */
 
         setIsLoading(false);
       } catch (err) {
@@ -134,7 +128,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
         clearInterval(detectionIntervalRef.current);
       }
     };
-  }, [modelsLoaded]);
+  }, [modelsLoaded, facingMode]); // Added facingMode dependency
 
   // Real-time face detection
   useEffect(() => {
@@ -257,141 +251,66 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     // Draw current video frame to canvas
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Compute face descriptor and demographics for this captured frame
+    // Compute face descriptor
     let faceDescriptor: number[] | null = null;
-    let demographics: { age?: number; gender?: 'male' | 'female'; estimatedHeight?: number; estimatedWeight?: number } = {};
+
+    // We initialize with defaults, but we will wait for API to overwrite them
+    let initialDemographics = {
+      age: '25',
+      gender: 'male' as 'male' | 'female',
+      estimatedHeight: '170',
+      estimatedWeight: '65'
+    };
 
     try {
-      // Use detectSingleFace with chaining for all required data
       const detection = await faceapi
         .detectSingleFace(
           canvas,
-          new faceapi.TinyFaceDetectorOptions({
-            inputSize: 320,
-            scoreThreshold: 0.45,
-          })
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 })
         )
         .withFaceLandmarks()
-        .withAgeAndGender()
         .withFaceDescriptor();
 
       if (detection) {
         faceDescriptor = Array.from(detection.descriptor as Float32Array);
-
-        // Extract Age and Gender from face
-        const age = Math.round(detection.age);
-        const gender = detection.gender as 'male' | 'female';
-
-        // Try to estimate height and weight from body pose
-        let estimatedHeight: number | null = null;
-        let estimatedWeight: number | null = null;
-
-        // Pose detection is currently disabled - using heuristic estimation only
-
-        // Fallback to heuristic estimation if pose detection failed
-        if (!estimatedHeight || !estimatedWeight) {
-          // Age/Gender-based heuristics (Indian averages)
-          if (gender === 'male') {
-            if (age < 12) { estimatedHeight = estimatedHeight || 135; estimatedWeight = estimatedWeight || 30; }
-            else if (age < 16) { estimatedHeight = estimatedHeight || 160; estimatedWeight = estimatedWeight || 50; }
-            else if (age < 20) { estimatedHeight = estimatedHeight || 170; estimatedWeight = estimatedWeight || 60; }
-            else { estimatedHeight = estimatedHeight || 172; estimatedWeight = estimatedWeight || 68; }
-          } else {
-            if (age < 12) { estimatedHeight = estimatedHeight || 135; estimatedWeight = estimatedWeight || 30; }
-            else if (age < 16) { estimatedHeight = estimatedHeight || 155; estimatedWeight = estimatedWeight || 45; }
-            else if (age < 20) { estimatedHeight = estimatedHeight || 160; estimatedWeight = estimatedWeight || 52; }
-            else { estimatedHeight = estimatedHeight || 158; estimatedWeight = estimatedWeight || 58; }
-          }
-        }
-
-        demographics = {
-          age,
-          gender,
-          estimatedHeight,
-          estimatedWeight
-        };
-
-        // ----------------------------------------------------------------
-        // NEW: Call Backend Face API for better accuracy
-        // ----------------------------------------------------------------
-        try {
-          const imageData = canvas.toDataURL('image/jpeg', 0.9);
-          const response = await fetch('/api/face/analyze', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ image: imageData }),
-          });
-
-          if (response.ok) {
-            const apiData = await response.json();
-            if (apiData.faces && apiData.faces.length > 0) {
-              const faceAttr = apiData.faces[0].attributes;
-              if (faceAttr) {
-                console.log('Using API Face Data:', faceAttr);
-                if (faceAttr.age) demographics.age = faceAttr.age.value;
-                if (faceAttr.gender) demographics.gender = faceAttr.gender.value.toLowerCase() as 'male' | 'female';
-
-                // RECALCULATE HEURISTICS WITH NEW DATA & ETHNICITY
-                const newAge = demographics.age || 25;
-                const newGender = demographics.gender || 'male';
-                let ethnicity = 'Asian'; // Default
-                if (faceAttr.ethnicity) {
-                  ethnicity = faceAttr.ethnicity.value; // e.g., 'Asian', 'White', 'Black'
-                }
-
-                let newHeight = 165;
-                let newWeight = 60;
-
-                // Base averages (Asian/Indian baseline)
-                if (newGender === 'male') {
-                  if (newAge < 12) { newHeight = 135; newWeight = 30; }
-                  else if (newAge < 16) { newHeight = 160; newWeight = 50; }
-                  else if (newAge < 20) { newHeight = 170; newWeight = 60; }
-                  else { newHeight = 172; newWeight = 68; }
-                } else {
-                  if (newAge < 12) { newHeight = 135; newWeight = 30; }
-                  else if (newAge < 16) { newHeight = 155; newWeight = 45; }
-                  else if (newAge < 20) { newHeight = 160; newWeight = 52; }
-                  else { newHeight = 158; newWeight = 58; }
-                }
-
-                // Adjust for Ethnicity (Global Averages vs Indian)
-                if (ethnicity === 'White') {
-                  newHeight += 5; // Europeans tend to be slightly taller
-                  newWeight += 5;
-                } else if (ethnicity === 'Black') {
-                  newHeight += 2;
-                  newWeight += 2;
-                }
-
-                demographics.estimatedHeight = newHeight;
-                demographics.estimatedWeight = newWeight;
-              }
-            }
-          }
-        } catch (apiErr) {
-          console.warn('Face API failed, using local estimation:', apiErr);
-        }
-        // ----------------------------------------------------------------
-
-      } else {
-        console.warn('No face detection results could be computed from captured image.');
       }
     } catch (err) {
-      console.error('Failed to compute face data from captured image:', err);
+      console.error('Failed to compute face descriptor:', err);
     }
 
     // Convert to base64
     const imageData = canvas.toDataURL('image/jpeg', 0.9);
     setCapturedImage(imageData);
-    setCapturedDescriptor(faceDescriptor); // Store the descriptor
-    // Store demographics in a ref or state if we want to preview them, 
-    // but for now we'll just pass them on confirm.
-    // We can store them in a temporary state to pass to onCapture
-    // For this refactor, let's attach them to the 'confirmCapture' scope via a ref or temp state
-    // To avoid complex state changes, we'll just re-detect on confirm OR 
-    // better: store it in a new state variable.
-    setCapturedDemographics(demographics);
+    setCapturedDescriptor(faceDescriptor);
+
+    // Initial optimistic UI update (shows "Analyzing..." or defaults?)
+    // Let's set defaults first so UI is usable immediately
+    setEditableDemographics(initialDemographics);
+
+    // Call Backend Gemini API
+    try {
+      const response = await fetch('/api/face/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData }),
+      });
+
+      if (response.ok) {
+        const apiData = await response.json();
+        console.log('Gemini Analysis:', apiData);
+
+        if (apiData) {
+          setEditableDemographics({
+            age: apiData.age?.toString() || initialDemographics.age,
+            gender: (apiData.gender?.toLowerCase() === 'female' ? 'female' : 'male'),
+            estimatedHeight: apiData.estimatedHeight?.toString() || initialDemographics.estimatedHeight,
+            estimatedWeight: apiData.estimatedWeight?.toString() || initialDemographics.estimatedWeight
+          });
+        }
+      }
+    } catch (apiErr) {
+      console.warn('Face API failed:', apiErr);
+    }
 
     // Stop camera stream
     if (stream) {
@@ -406,32 +325,13 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
 
   const confirmCapture = async () => {
     if (capturedImage) {
-      // Use the stored descriptor if available, otherwise try to recompute
-      let faceDescriptor = capturedDescriptor;
-
-      if (!faceDescriptor && canvasRef.current) {
-        try {
-          // Recompute descriptor from the captured image if not stored
-          const detectionWithDescriptor = await faceapi
-            .detectSingleFace(
-              canvasRef.current,
-              new faceapi.TinyFaceDetectorOptions({
-                inputSize: 320,
-                scoreThreshold: 0.45,
-              })
-            )
-            .withFaceLandmarks()
-            .withFaceDescriptor();
-
-          if (detectionWithDescriptor?.descriptor) {
-            faceDescriptor = Array.from(detectionWithDescriptor.descriptor as Float32Array);
-          }
-        } catch (err) {
-          console.error('Failed to recompute face descriptor on confirm:', err);
-        }
-      }
-
-      onCapture(capturedImage, faceDescriptor, capturedDemographics || undefined);
+      // Pass the EDITED values to the callback
+      onCapture(capturedImage, capturedDescriptor, {
+        age: parseInt(editableDemographics.age) || 25,
+        gender: editableDemographics.gender,
+        estimatedHeight: parseInt(editableDemographics.estimatedHeight) || 170,
+        estimatedWeight: parseInt(editableDemographics.estimatedWeight) || 65
+      });
       onClose();
     }
   };
@@ -441,7 +341,12 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     setCapturedDescriptor(null);
     setValidationStatus(null);
 
-    // Restart camera
+    // Restart logic is handled by the effect or we restart manually.
+    // Since we unmount/remount logic isn't clean here, let's just nullify image and ensuring stream logic triggers?
+    // Actually our stream effect depends on [modelsLoaded, facingMode]. It doesn't check capturedImage.
+    // But we stopped the stream in capturePhoto. So we need to restart it.
+    // The easiest way is to call the startCamera logic again.
+
     const startCamera = async () => {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -451,17 +356,14 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
             height: { ideal: 480 }
           }
         });
-
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
         }
       } catch (error) {
         console.error('Error accessing camera:', error);
-        alert(t('selfie.failCameraShort'));
       }
     };
-
     startCamera();
   };
 
@@ -476,25 +378,8 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     setFacingMode(newFacingMode);
 
     // Restart camera with new facing mode
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: newFacingMode,
-          width: { ideal: 640 },
-          height: { ideal: 480 }
-        }
-      });
-
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
-    } catch (error) {
-      console.error('Error switching camera:', error);
-      alert(t('selfie.failCameraShort'));
-    }
+    // (The useEffect will pick this up if we added facingMode as dependency, which I did in this full rewrite)
   };
-
 
   if (isLoading) {
     return (
@@ -508,28 +393,76 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 overflow-y-auto">
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 my-8">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold text-gray-900">{t('selfie.title')}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
             <X className="w-6 h-6" />
           </button>
         </div>
 
         {capturedImage ? (
           <div className="space-y-4">
-            <div className="relative bg-gray-100 rounded-lg overflow-hidden">
-              <img
-                src={capturedImage}
-                alt="Captured selfie"
-                className="w-full h-auto"
-              />
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative bg-gray-100 rounded-lg overflow-hidden flex-1">
+                <img src={capturedImage} alt="Captured selfie" className="w-full h-auto object-cover" />
+              </div>
+
+              {/* Manual Edit Form */}
+              <div className="flex-1 bg-blue-50 p-4 rounded-lg space-y-3">
+                <h3 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <Info className="w-4 h-4 text-blue-600" />
+                  AI Estimate (Adjust if needed)
+                </h3>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Age (Years)</label>
+                    <input
+                      type="number"
+                      value={editableDemographics.age}
+                      onChange={(e) => setEditableDemographics({ ...editableDemographics, age: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Gender</label>
+                    <select
+                      value={editableDemographics.gender}
+                      onChange={(e) => setEditableDemographics({ ...editableDemographics, gender: e.target.value as 'male' | 'female' })}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Height (cm)</label>
+                    <input
+                      type="number"
+                      value={editableDemographics.estimatedHeight}
+                      onChange={(e) => setEditableDemographics({ ...editableDemographics, estimatedHeight: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Weight (kg)</label>
+                    <input
+                      type="number"
+                      value={editableDemographics.estimatedWeight}
+                      onChange={(e) => setEditableDemographics({ ...editableDemographics, estimatedWeight: e.target.value })}
+                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Verify these details carefully. They will be used for medical checks.
+                </p>
+              </div>
             </div>
-            <div className="flex gap-3">
+
+            <div className="flex gap-3 pt-2">
               <button
                 onClick={retakePhoto}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
@@ -547,7 +480,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
           </div>
         ) : (
           <div className="space-y-4">
-            {/* Body capture instructions */}
+            {/* ... (Camera view remains mostly the same, just keeping the JSX structure) */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="flex items-start gap-2">
                 <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
@@ -559,18 +492,8 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
             </div>
 
             <div className="relative bg-gray-900 rounded-lg overflow-hidden">
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                className="w-full h-auto"
-              />
-              <canvas
-                ref={canvasRef}
-                className="absolute top-0 left-0 w-full h-full pointer-events-none"
-              />
-              {/* Flip Camera Button */}
+              <video ref={videoRef} autoPlay playsInline muted className="w-full h-auto" />
+              <canvas ref={canvasRef} className="absolute top-0 left-0 w-full h-full pointer-events-none" />
               <button
                 onClick={flipCamera}
                 className="absolute top-4 right-4 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 p-3 rounded-full shadow-lg transition-all duration-200 hover:scale-110"
@@ -581,26 +504,14 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
             </div>
 
             {validationStatus && (
-              <div
-                className={`p-3 rounded-md flex items-center gap-2 ${validationStatus.isValid
-                  ? 'bg-green-50 text-green-800'
-                  : 'bg-yellow-50 text-yellow-800'
-                  }`}
-              >
-                {validationStatus.isValid ? (
-                  <CheckCircle className="w-5 h-5 text-green-600" />
-                ) : (
-                  <AlertCircle className="w-5 h-5 text-yellow-600" />
-                )}
+              <div className={`p-3 rounded-md flex items-center gap-2 ${validationStatus.isValid ? 'bg-green-50 text-green-800' : 'bg-yellow-50 text-yellow-800'}`}>
+                {validationStatus.isValid ? <CheckCircle className="w-5 h-5 text-green-600" /> : <AlertCircle className="w-5 h-5 text-yellow-600" />}
                 <span className="text-sm">{validationStatus.message}</span>
               </div>
             )}
 
             <div className="flex gap-3">
-              <button
-                onClick={onClose}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50"
-              >
+              <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
                 {t('selfie.cancel')}
               </button>
               <button
@@ -626,7 +537,6 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
               <p>• {t('selfie.tip.1')}</p>
               <p>• {t('selfie.tip.2')}</p>
               <p>• {t('selfie.tip.3')}</p>
-              <p>• {t('selfie.tip.4')}</p>
             </div>
           </div>
         )}
@@ -634,4 +544,3 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     </div>
   );
 }
-

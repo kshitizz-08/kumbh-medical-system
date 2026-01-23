@@ -8,40 +8,53 @@ const router = express.Router();
 router.post('/analyze', async (req, res) => {
     try {
         const { image } = req.body; // Expecting base64 string
-        const apiKey = (process.env.FACEPP_API_KEY || '').trim();
-        const apiSecret = (process.env.FACEPP_API_SECRET || '').trim();
+        const apiKey = (process.env.GEMINI_API_KEY || '').trim();
 
-        if (!apiKey || !apiSecret) {
-            // For development/demo without keys, we can return a mock response or error
-            // return res.json({ faces: [{ attributes: { gender: { value: 'Male' }, age: { value: 25 } } }] });
-            return res.status(500).json({ error: 'Face API keys not configured' });
+        if (!apiKey) {
+            console.warn('Gemini API key missing. Using mock data.');
+            // Mock response for development/demo
+            return res.json({
+                age: 25,
+                gender: 'male',
+                estimatedHeight: 170,
+                estimatedWeight: 65,
+                mock: true
+            });
         }
 
         // Remove data:image/jpeg;base64, prefix if present
         const base64Image = image.replace(/^data:image\/\w+;base64,/, "");
 
-        const params = new URLSearchParams();
-        params.append('api_key', apiKey);
-        params.append('api_secret', apiSecret);
-        params.append('image_base64', base64Image);
-        params.append('return_attributes', 'gender,age,ethnicity');
+        const { GoogleGenerativeAI } = await import('@google/generative-ai');
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-        // Using Face++ US Endpoint
-        const response = await fetch('https://api-us.faceplusplus.com/facepp/v3/detect', {
-            method: 'POST',
-            body: params,
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        });
+        const prompt = `Analyze this image of a person. Estimate their:
+        1. Age (number)
+        2. Gender ('male' or 'female')
+        3. Height in cm (number)
+        4. Weight in kg (number)
+        
+        Provide your best guess based on visual cues.
+        Return ONLY valid JSON with keys: age, gender, estimatedHeight, estimatedWeight. Do not use markdown code blocks.`;
 
-        const data = await response.json();
+        const imagePart = {
+            inlineData: {
+                data: base64Image,
+                mimeType: "image/jpeg"
+            }
+        };
 
-        if (data.error_message) {
-            throw new Error(data.error_message);
-        }
+        const result = await model.generateContent([prompt, imagePart]);
+        const responseText = result.response.text();
+
+        // Clean up response if it wraps in markdown
+        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+        const data = JSON.parse(cleanedText);
 
         res.json(data);
     } catch (error) {
-        console.error('Face API Error:', error);
+        console.error('Gemini API Error:', error);
         res.status(500).json({ error: error.message || 'Failed to analyze face' });
     }
 });
