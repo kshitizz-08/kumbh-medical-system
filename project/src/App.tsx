@@ -1,6 +1,6 @@
 import { useState, lazy, Suspense, useCallback, memo } from 'react';
 import { UserPlus, Search, Heart, CheckCircle2, Home, Loader2, Copy, Check, X, BarChart3 } from 'lucide-react';
-import { Devotee, MedicalRecord } from './lib/api';
+import { Devotee, MedicalRecord, DevoteeWithRecord } from './lib/api';
 import { useI18n } from './i18n/i18n';
 
 // Lazy load heavy components for code splitting
@@ -35,8 +35,8 @@ function App() {
   const [registrationSuccess, setRegistrationSuccess] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState(false);
 
-  const handleRegistrationSuccess = useCallback((regNumber: string) => {
-    setRegistrationSuccess(regNumber);
+  const handleRegistrationSuccess = useCallback((data: DevoteeWithRecord) => {
+    setRegistrationSuccess(data.registration_number);
     setCopiedId(false);
     // Don't auto-dismiss - let user close manually
   }, []);
@@ -382,6 +382,7 @@ function App() {
             refreshToken={profileRefreshToken}
             onClose={handleCloseProfile}
             onRecordIncident={handleRecordIncident}
+            onDevoteeUpdate={handleSelectDevotee}
           />
         </Suspense>
       )}

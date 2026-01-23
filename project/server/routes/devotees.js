@@ -177,5 +177,70 @@ router.post('/search-by-face', async (req, res) => {
   }
 });
 
+
+
+// PUT /api/devotees/:id - Update Devotee & Medical Record
+router.put('/:id', async (req, res) => {
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    const { id } = req.params;
+    console.log(`Updating Devotee ${id} Payload:`, JSON.stringify(req.body, null, 2));
+
+    // 1. Update Devotee Basic Info
+    const devoteeUpdate = {
+      full_name: req.body.full_name,
+      age: req.body.age,
+      gender: req.body.gender,
+      phone: req.body.phone,
+      emergency_contact_name: req.body.emergency_contact_name,
+      emergency_contact_phone: req.body.emergency_contact_phone,
+    };
+
+    // Only update photo/face if provided
+    if (req.body.photo_url) devoteeUpdate.photo_url = req.body.photo_url;
+    if (req.body.face_descriptor) devoteeUpdate.face_descriptor = req.body.face_descriptor;
+
+    const devotee = await Devotee.findByIdAndUpdate(
+      id,
+      { $set: devoteeUpdate },
+      { new: true, session }
+    );
+
+    if (!devotee) {
+      throw new Error('Devotee not found');
+    }
+
+    // 2. Update Medical Record
+    const medicalUpdate = {
+      blood_group: req.body.blood_group || null,
+      height_cm: req.body.height_cm || null,
+      weight_kg: req.body.weight_kg || null,
+      allergies: req.body.allergies || '',
+      chronic_conditions: req.body.chronic_conditions || '',
+      current_medications: req.body.current_medications || '',
+      past_surgeries: req.body.past_surgeries || '',
+      special_notes: req.body.special_notes || '',
+    };
+
+    const medicalRecord = await MedicalRecord.findOneAndUpdate(
+      { devotee_id: id },
+      { $set: medicalUpdate },
+      { new: true, upsert: true, session } // upsert in case it was missing
+    );
+
+    await session.commitTransaction();
+    session.endSession();
+
+    return res.json(formatDevotee(devotee.toObject(), medicalRecord.toObject()));
+  } catch (error) {
+    await session.abortTransaction();
+    session.endSession();
+    console.error('Failed to update devotee', error);
+    return res.status(500).json({ message: 'Failed to update devotee', details: error.message });
+  }
+});
+
 export default router;
 

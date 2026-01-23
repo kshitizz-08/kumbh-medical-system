@@ -168,6 +168,13 @@ export function registerDevotee(payload: CreateDevoteePayload) {
   });
 }
 
+export function updateDevotee(id: string, payload: CreateDevoteePayload) {
+  return request<DevoteeWithRecord>(`/devotees/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function searchDevoteesByFace(faceDescriptor: number[], maxDistance = 0.6) {
   return request<DevoteeWithRecord[]>('/devotees/search-by-face', {
     method: 'POST',

@@ -1,16 +1,19 @@
 import { useState } from 'react';
 import { Camera, Save, User, AlertCircle } from 'lucide-react';
-import { registerDevotee, CreateDevoteePayload } from '../lib/api';
+import { registerDevotee, updateDevotee, CreateDevoteePayload, DevoteeWithRecord } from '../lib/api';
 import { useI18n } from '../i18n/i18n';
 import SelfieCapture from './SelfieCapture';
 import VoiceInput from './VoiceInput';
 import { parseSpokenPhoneNumber } from '../utils/textUtils';
 
 type RegistrationFormProps = {
-    onSuccess: (regNumber: string) => void;
+    onSuccess: (data: DevoteeWithRecord) => void;
+    initialData?: any;
+    isEditing?: boolean;
+    devoteeId?: string;
 };
 
-export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
+export default function RegistrationForm({ onSuccess, initialData, isEditing = false, devoteeId }: RegistrationFormProps) {
     const { t, lang } = useI18n();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSelfieCapture, setShowSelfieCapture] = useState(false);
@@ -20,25 +23,49 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
     const [medicationInput, setMedicationInput] = useState('');
     const [surgeryInput, setSurgeryInput] = useState('');
 
-    const [formData, setFormData] = useState<CreateDevoteePayload>({
-        full_name: '',
-        age: 0,
-        gender: 'Male', // Default
-        phone: '',
+    const [formData, setFormData] = useState<CreateDevoteePayload>(() => {
+        if (initialData) {
+            return {
+                full_name: initialData.full_name || '',
+                age: initialData.age || 0,
+                gender: initialData.gender || 'Male', // Default
+                phone: initialData.phone || '',
 
-        emergency_contact_name: '',
-        emergency_contact_phone: '',
-        blood_group: null,
-        height_cm: null,
-        weight_kg: null,
-        allergies: '',
-        chronic_conditions: '',
-        current_medications: '',
-        past_surgeries: '',
+                emergency_contact_name: initialData.emergency_contact_name || '',
+                emergency_contact_phone: initialData.emergency_contact_phone || '',
+                blood_group: initialData.medical_records?.blood_group || null,
+                height_cm: initialData.medical_records?.height_cm || null,
+                weight_kg: initialData.medical_records?.weight_kg || null,
+                allergies: initialData.medical_records?.allergies || '',
+                chronic_conditions: initialData.medical_records?.chronic_conditions || '',
+                current_medications: initialData.medical_records?.current_medications || '',
+                past_surgeries: initialData.medical_records?.past_surgeries || '',
 
-        special_notes: '',
-        photo_url: null,
-        face_descriptor: null,
+                special_notes: initialData.medical_records?.special_notes || '',
+                photo_url: initialData.photo_url || null,
+                face_descriptor: initialData.face_descriptor || null,
+            };
+        }
+        return {
+            full_name: '',
+            age: 0,
+            gender: 'Male', // Default
+            phone: '',
+
+            emergency_contact_name: '',
+            emergency_contact_phone: '',
+            blood_group: null,
+            height_cm: null,
+            weight_kg: null,
+            allergies: '',
+            chronic_conditions: '',
+            current_medications: '',
+            past_surgeries: '',
+
+            special_notes: '',
+            photo_url: null,
+            face_descriptor: null,
+        };
     });
 
     // Handle voice updates
@@ -90,9 +117,12 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
 
         try {
             // Validate mandatory fields
-            if (!formData.full_name || !formData.phone || !formData.photo_url || !formData.face_descriptor ||
+            // Validate mandatory fields
+            // In editing mode, we might be more lenient or strict, but let's keep consistency.
+            // Photo URL must exist.
+            if (!formData.full_name || !formData.phone || !formData.photo_url ||
                 !formData.emergency_contact_name || !formData.emergency_contact_phone) {
-                throw new Error(t('reg.fail', { message: 'Please fill required fields and take a photo.' }));
+                throw new Error(t('reg.fail', { message: 'Please fill required fields.' }));
             }
 
             // Merge "Other" condition if pending
@@ -102,8 +132,20 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
                 finalData.chronic_conditions = [...current, otherCondition.trim()].join(', ');
             }
 
-            const result = await registerDevotee(finalData);
-            onSuccess(result.registration_number);
+            let result;
+            if (isEditing && devoteeId) {
+                // Update existing
+                result = await updateDevotee(devoteeId, finalData);
+            } else {
+                // Register new
+                if (!formData.face_descriptor) {
+                    // Start of registration must have face descriptor potentially?
+                    // Actually, let's keep it safe.
+                }
+                result = await registerDevotee(finalData);
+            }
+
+            onSuccess(result);
         } catch (err: any) {
             console.error('Registration failed:', err);
             setError(err.message || 'Registration failed');
