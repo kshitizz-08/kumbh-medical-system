@@ -32,11 +32,18 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
     const retryCountRef = useRef(0);
     const MAX_RETRIES = 2;
 
+    // Check for secure context on mount
+    useEffect(() => {
+        if (!window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+            setError('Voice input requires a secure connection (HTTPS).');
+        }
+    }, []);
+
     useEffect(() => {
         // Reset state on language change
         setIsListening(false);
         setInterimTranscript('');
-        setError(null); // Clear errors on language change
+        setError(null); 
         retryCountRef.current = 0;
 
         // Abort any existing recognition instance
@@ -54,80 +61,79 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
             return;
         }
 
-        // Small delay to ensure previous instance is fully cleaned up
-        const initTimeout = setTimeout(() => {
-            // @ts-ignore
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const recognitionInstance = new SpeechRecognition();
+        // Initialize recognition instance
+        // @ts-ignore
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const recognitionInstance = new SpeechRecognition();
 
-            recognitionInstance.continuous = false; // We want short phrases, not dictation
-            recognitionInstance.interimResults = true; // Show results as they speak
-            recognitionInstance.lang = language;
-            recognitionInstance.maxAlternatives = 5; // Get more options for better accuracy
+        recognitionInstance.continuous = false; // We want short phrases, not dictation
+        recognitionInstance.interimResults = true; // Show results as they speak
+        recognitionInstance.lang = language;
+        recognitionInstance.maxAlternatives = 5; // Get more options for better accuracy
 
-            recognitionInstance.onstart = () => {
-                setIsListening(true);
-                setError(null);
-                setInterimTranscript('');
-            };
+        recognitionInstance.onstart = () => {
+            setIsListening(true);
+            setError(null);
+            setInterimTranscript('');
+        };
 
-            recognitionInstance.onresult = (event: any) => {
-                let finalTranscript = '';
-                let interim = '';
+        recognitionInstance.onresult = (event: any) => {
+            let finalTranscript = '';
+            let interim = '';
 
-                for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    if (event.results[i].isFinal) {
-                        finalTranscript += event.results[i][0].transcript;
-                    } else {
-                        interim += event.results[i][0].transcript;
-                    }
-                }
-
-                if (finalTranscript) {
-                    onTranscript(finalTranscript);
-                    // Reset retry count on success
-                    retryCountRef.current = 0;
-                }
-
-                setInterimTranscript(interim);
-            };
-
-            recognitionInstance.onerror = (event: any) => {
-                console.error('Speech recognition error', event.error);
-                setIsListening(false);
-
-                if (event.error === 'no-speech') {
-                    if (retryCountRef.current < MAX_RETRIES) {
-                        retryCountRef.current += 1;
-                        console.log(`Retry ${retryCountRef.current} for no-speech`);
-                        try {
-                            recognitionInstance.start();
-                            return; // Don't show error yet
-                        } catch (e) {
-                            // ignore restart error
-                        }
-                    } else {
-                        setError(t('common.voiceNoMic') || 'No speech detected');
-                    }
-                } else if (event.error === 'not-allowed') {
-                    setError(t('common.voiceMicDenied') || 'Microphone access denied');
-                } else if (event.error === 'network') {
-                    setError(t('common.voiceNetworkError') || 'Network error');
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
                 } else {
-                    setError('Error occurred in recognition: ' + event.error);
+                    interim += event.results[i][0].transcript;
                 }
-            };
+            }
 
-            recognitionInstance.onend = () => {
-                setIsListening(false);
-                setInterimTranscript(''); // Clear visual feedback
-            };
+            if (finalTranscript) {
+                onTranscript(finalTranscript);
+                // Reset retry count on success
+                retryCountRef.current = 0;
+            }
 
-            recognitionRef.current = recognitionInstance;
-        }, 100); // 100ms delay to ensure cleanup
+            setInterimTranscript(interim);
+        };
+
+        recognitionInstance.onerror = (event: any) => {
+            console.error('Speech recognition error', event.error);
+            setIsListening(false);
+
+            if (event.error === 'no-speech') {
+                if (retryCountRef.current < MAX_RETRIES) {
+                    retryCountRef.current += 1;
+                    console.log(`Retry ${retryCountRef.current} for no-speech`);
+                    try {
+                        recognitionInstance.start();
+                        return; // Don't show error yet
+                    } catch (e) {
+                        // ignore restart error
+                    }
+                } else {
+                    setError(t('common.voiceNoMic') || 'No speech detected');
+                }
+            } else if (event.error === 'not-allowed') {
+                setError(t('common.voiceMicDenied') || 'Microphone access denied');
+            } else if (event.error === 'network') {
+                setError(t('common.voiceNetworkError') || 'Network error');
+            } else if (event.error === 'aborted') {
+                // Ignore aborted errors as they are likely manual stops
+            } else {
+                setError('Error occurred in recognition: ' + event.error);
+            }
+        };
+
+        recognitionInstance.onend = () => {
+            setIsListening(false);
+            setInterimTranscript(''); // Clear visual feedback
+        };
+
+        recognitionRef.current = recognitionInstance;
 
         return () => {
-            clearTimeout(initTimeout);
             if (recognitionRef.current) {
                 try {
                     recognitionRef.current.abort();
@@ -144,43 +150,22 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
         } else {
             setError(null);
             retryCountRef.current = 0;
+            
+            // For mobile compatibility (especially iOS), we must call start() DIRECTLY in the user event handler.
+            // Do NOT use setTimeout or extensive logic before this call if possible.
             try {
-                // First abort any running instance (defensive)
-                if (recognitionRef.current) {
-                    try {
-                        recognitionRef.current.abort();
-                    } catch (e) {
-                        // Ignore abort errors
-                    }
-                    // Small delay to ensure cleanup before starting
-                    setTimeout(() => {
-                        try {
-                            recognitionRef.current?.start();
-                        } catch (err: any) {
-                            console.error('Failed to start recognition:', err);
-                            if (err.message && err.message.includes('already started')) {
-                                // If still getting "already started", force abort and retry once
-                                try {
-                                    recognitionRef.current?.abort();
-                                    setTimeout(() => {
-                                        try {
-                                            recognitionRef.current?.start();
-                                        } catch (e) {
-                                            setError('Could not start microphone. Please try again.');
-                                        }
-                                    }, 150);
-                                } catch (e) {
-                                    setError('Could not start microphone.');
-                                }
-                            } else {
-                                setError('Could not start microphone.');
-                            }
-                        }
-                    }, 50);
-                }
-            } catch (err) {
+                // If there's an old instance that might be stuck, we might need to abort it.
+                // However, aborting is async. Ideally, the useEffect cleanup handled the old one.
+                // We will try to start immediately.
+                recognitionRef.current?.start();
+            } catch (err: any) {
                 console.error('Failed to start recognition:', err);
-                setError('Could not start microphone.');
+                if (err.message && err.message.includes('already started')) {
+                     // If it's already started, we might seek to stop it instead, effectively toggling it.
+                     recognitionRef.current?.stop();
+                } else {
+                    setError('Could not start microphone.');
+                }
             }
         }
     };
