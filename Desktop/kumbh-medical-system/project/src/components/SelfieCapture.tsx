@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Camera, X, CheckCircle, AlertCircle, Loader2, Info } from 'lucide-react';
+import { Camera, X, CheckCircle, AlertCircle, Loader2, Info, SwitchCamera } from 'lucide-react';
 import * as faceapi from 'face-api.js';
 import * as poseDetection from '@tensorflow-models/pose-detection';
 import '@tensorflow/tfjs-core';
@@ -46,6 +46,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
   const detectionIntervalRef = useRef<number | null>(null);
   const poseDetectorRef = useRef<poseDetection.PoseDetector | null>(null);
   const [poseModelLoaded, setPoseModelLoaded] = useState(false);
+  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
   // Helper: Estimate height from body pose keypoints
   const estimateHeightFromPose = (keypoints: poseDetection.Keypoint[], imageHeight: number): number | null => {
@@ -208,7 +209,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: 'user', // Front camera for selfie
+            facingMode: facingMode, // Use state variable for camera selection
             width: { ideal: 640 },
             height: { ideal: 480 }
           }
@@ -502,7 +503,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: 'user',
+            facingMode: facingMode,
             width: { ideal: 640 },
             height: { ideal: 480 }
           }
@@ -520,6 +521,37 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
 
     startCamera();
   };
+
+  const flipCamera = async () => {
+    // Stop current stream
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+
+    // Toggle facing mode
+    const newFacingMode = facingMode === 'user' ? 'environment' : 'user';
+    setFacingMode(newFacingMode);
+
+    // Restart camera with new facing mode
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: newFacingMode,
+          width: { ideal: 640 },
+          height: { ideal: 480 }
+        }
+      });
+
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (error) {
+      console.error('Error switching camera:', error);
+      alert(t('selfie.failCameraShort'));
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -595,6 +627,14 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
                 ref={canvasRef}
                 className="absolute top-0 left-0 w-full h-full pointer-events-none"
               />
+              {/* Flip Camera Button */}
+              <button
+                onClick={flipCamera}
+                className="absolute top-4 right-4 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 p-3 rounded-full shadow-lg transition-all duration-200 hover:scale-110"
+                title="Switch Camera"
+              >
+                <SwitchCamera className="w-5 h-5" />
+              </button>
             </div>
 
             {validationStatus && (

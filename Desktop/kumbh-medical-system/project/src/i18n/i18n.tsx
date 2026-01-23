@@ -225,6 +225,9 @@ const DICT: Record<Language, Dictionary> = {
     'common.close': 'Close',
     'common.add': 'Add',
     'common.voiceNotSupported': 'Voice input is not supported in this browser.',
+    'common.voiceMicDenied': 'Microphone access denied. Please allow microphone permissions in your browser settings.',
+    'common.voiceNoMic': 'No microphone was found. Please ensure a microphone is connected.',
+    'common.voiceNetworkError': 'Network error occurred. Please check your internet connection and try again.',
     'common.total': 'total',
 
     // Selfie capture
@@ -448,6 +451,9 @@ const DICT: Record<Language, Dictionary> = {
     'common.close': 'बंद करें',
     'common.add': 'जोड़ें',
     'common.voiceNotSupported': 'इस ब्राउज़र में वॉयस इनपुट समर्थित नहीं है।',
+    'common.voiceMicDenied': 'माइक्रोफोन अनुमति अस्वीकृत। कृपया अपने ब्राउज़र सेटिंग्स में माइक्रोफोन अनुमति दें।',
+    'common.voiceNoMic': 'कोई माइक्रोफोन नहीं मिला। कृपया सुनिश्चित करें कि माइक्रोफोन कनेक्ट है।',
+    'common.voiceNetworkError': 'नेटवर्क त्रुटि हुई। कृपया अपना इंटरनेट कनेक्शन जांचें और पुनः प्रयास करें।',
     'common.total': 'कुल',
 
     'selfie.loadingModels': 'फेस मॉडल लोड हो रहे हैं...',
@@ -669,6 +675,9 @@ const DICT: Record<Language, Dictionary> = {
     'common.close': 'बंद करा',
     'common.add': 'जोडा',
     'common.voiceNotSupported': 'या ब्राउझरमध्ये व्हॉइस इनपुट समर्थित नाही.',
+    'common.voiceMicDenied': 'मायक्रोफोन परवानगी नाकारली. कृपया तुमच्या ब्राउझर सेटिंग्जमध्ये मायक्रोफोन परवानगी द्या.',
+    'common.voiceNoMic': 'मायक्रोफोन आढळला नाही. कृपया मायक्रोफोन कनेक्ट केलेला आहे याची खात्री करा.',
+    'common.voiceNetworkError': 'नेटवर्क त्रुटी आली. कृपया तुमचे इंटरनेट कनेक्शन तपासा आणि पुन्हा प्रयत्न करा.',
     'common.total': 'एकूण',
 
     'selfie.loadingModels': 'फेस मॉडेल्स लोड होत आहेत...',
