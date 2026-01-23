@@ -199,9 +199,17 @@ export default function SearchInterface({ onSelectDevotee }: { onSelectDevotee: 
                   className="w-full bg-white p-4 rounded-lg shadow-sm border border-gray-200 hover:border-blue-500 hover:shadow-md transition-all text-left"
                 >
                   <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <User className="w-6 h-6 text-blue-600" />
-                    </div>
+                    {result.photo_url ? (
+                      <img
+                        src={result.photo_url}
+                        alt={result.full_name}
+                        className="w-12 h-12 rounded-full object-cover border border-gray-200 flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <User className="w-6 h-6 text-blue-600" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold text-gray-900">{result.full_name}</h3>

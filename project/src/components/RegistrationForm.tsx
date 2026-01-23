@@ -187,31 +187,42 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
                                 alt="Devotee"
                                 className="w-32 h-32 rounded-full object-cover border-4 border-white shadow-lg"
                             />
-                            <button
-                                type="button"
-                                onClick={() => setShowSelfieCapture(true)}
-                                className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 shadow-md transition-transform hover:scale-105"
-                                title={t('selfie.retake')}
-                            >
-                                <Camera className="w-4 h-4" />
-                            </button>
+                            {!isEditing && (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSelfieCapture(true)}
+                                    className="absolute bottom-0 right-0 bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 shadow-md transition-transform hover:scale-105"
+                                    title={t('selfie.retake')}
+                                >
+                                    <Camera className="w-4 h-4" />
+                                </button>
+                            )}
                         </div>
                     ) : (
-                        <div className="text-center">
-                            <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 text-orange-400">
-                                <Camera className="w-10 h-10" />
+                        !isEditing ? (
+                            <div className="text-center">
+                                <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-3 text-orange-400">
+                                    <Camera className="w-10 h-10" />
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowSelfieCapture(true)}
+                                    className="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
+                                >
+                                    {t('reg.takeSelfie')}
+                                </button>
+                                <p className="text-xs text-gray-500 mt-2 max-w-xs mx-auto">
+                                    {t('reg.selfieHint')}
+                                </p>
                             </div>
-                            <button
-                                type="button"
-                                onClick={() => setShowSelfieCapture(true)}
-                                className="px-6 py-2 bg-blue-600 text-white rounded-full font-medium hover:bg-blue-700 transition-colors shadow-lg hover:shadow-xl"
-                            >
-                                {t('reg.takeSelfie')}
-                            </button>
-                            <p className="text-xs text-gray-500 mt-2 max-w-xs mx-auto">
-                                {t('reg.selfieHint')}
-                            </p>
-                        </div>
+                        ) : (
+                            <div className="text-center text-gray-400">
+                                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <User className="w-10 h-10" />
+                                </div>
+                                <p className="text-sm">{t('profile.noPhoto') || 'No photo available'}</p>
+                            </div>
+                        )
                     )}
                 </div>
 

@@ -50,6 +50,21 @@ export default function MedicalProfile({ devotee, refreshToken, onClose, onRecor
                 <ArrowLeft className="w-5 h-5 text-gray-600" />
               </button>
             )}
+
+            {!isEditing && (
+              devotee.photo_url ? (
+                <img
+                  src={devotee.photo_url}
+                  alt={devotee.full_name}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-gray-100 shadow-sm"
+                />
+              ) : (
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center border-2 border-gray-100">
+                  <User className="w-8 h-8 text-gray-400" />
+                </div>
+              )
+            )}
+
             <div>
               <h2 className="text-2xl font-bold text-gray-900">
                 {isEditing ? t('register.editProfile') : devotee.full_name}
