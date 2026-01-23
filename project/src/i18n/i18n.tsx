@@ -265,6 +265,9 @@ const DICT: Record<Language, Dictionary> = {
     'common.total': 'total',
     'common.copied': 'Copied!',
     'common.copy': 'Copy',
+    'common.startVoice': 'Start voice input',
+    'common.stopVoice': 'Stop listening',
+    'common.listening': 'Listening...',
 
     // Selfie capture
     'selfie.loadingModels': 'Loading face detection models...',
@@ -527,6 +530,9 @@ const DICT: Record<Language, Dictionary> = {
     'common.total': 'कुल',
     'common.copied': 'कॉपी हो गया!',
     'common.copy': 'कॉपी',
+    'common.startVoice': 'वॉयस इनपुट शुरू करें',
+    'common.stopVoice': 'सुनना बंद करें',
+    'common.listening': 'सुन रहा है...',
 
     'selfie.loadingModels': 'फेस मॉडल लोड हो रहे हैं...',
     'selfie.failModels': 'फेस मॉडल लोड नहीं हो पाए। इंटरनेट जांचें और पेज रिफ्रेश करें।',
@@ -773,6 +779,9 @@ const DICT: Record<Language, Dictionary> = {
     'common.total': 'एकूण',
     'common.copied': 'कॉपी केले!',
     'common.copy': 'कॉपी',
+    'common.startVoice': 'व्हॉइस इनपुट सुरू करा',
+    'common.stopVoice': 'ऐकणे थांबवा',
+    'common.listening': 'ऐकत आहे...',
 
     'selfie.loadingModels': 'फेस मॉडेल्स लोड होत आहेत...',
     'selfie.failModels': 'फेस मॉडेल्स लोड झाले नाहीत. इंटरनेट तपासा आणि पेज रिफ्रेश करा.',

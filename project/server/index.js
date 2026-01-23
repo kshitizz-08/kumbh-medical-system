@@ -42,17 +42,40 @@ app.use('/api/face', faceRoutes);
 // SERVE STATIC FILES (This fixes "Cannot GET /")
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Serve files from the 'dist' directory (one level up from server/)
-app.use(express.static(path.join(__dirname, '../dist')));
+const distPath = path.join(__dirname, '../dist');
 
-// Handle client-side routing - serve index.html for all non-API routes
-app.get(/^(?!\/api).+/, (req, res) => {
-  res.sendFile(path.join(__dirname, '../dist/index.html'));
-});
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+
+  // Handle client-side routing - serve index.html for all non-API routes
+  app.get(/^(?!\/api).+/, (req, res) => {
+    const indexPath = path.join(distPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+      res.sendFile(indexPath);
+    } else {
+      res.status(404).send('Build found but index.html is missing. Please run "npm run build" locally or in your deployment pipeline.');
+    }
+  });
+} else {
+  // If dist doesn't exist (e.g. running server only without build), show a helpful message
+  app.get('/', (req, res) => {
+    res.send(`
+      <div style="font-family: sans-serif; padding: 20px; text-align: center;">
+        <h1>Medical System API is Running</h1>
+        <p>Frontend build not found at <code>${distPath}</code></p>
+        <p>To serve the frontend:</p>
+        <pre>npm run build</pre>
+        <p>Then restart the server.</p>
+      </div>
+    `);
+  });
+}
 
 async function start() {
   try {
