@@ -6,7 +6,6 @@ interface VoiceInputProps {
     onTranscript: (text: string) => void;
     language?: string; // e.g., 'en-US', 'hi-IN', 'mr-IN'
     className?: string;
-    placeholder?: string;
 }
 
 export default function VoiceInput({

@@ -1,9 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { Camera, X, CheckCircle, AlertCircle, Loader2, Info, SwitchCamera } from 'lucide-react';
 import * as faceapi from 'face-api.js';
-import * as poseDetection from '@tensorflow-models/pose-detection';
-import '@tensorflow/tfjs-core';
-import '@tensorflow/tfjs-backend-webgl';
 import { useI18n } from '../i18n/i18n';
 
 type SelfieCaptureProps = {
@@ -19,8 +16,6 @@ type SelfieCaptureProps = {
     }
   ) => void;
   onClose: () => void;
-  // Optional mode flag for future customization if needed
-  mode?: 'register' | 'search';
 };
 
 export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps) {
@@ -44,134 +39,8 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     estimatedWeight?: number;
   } | null>(null);
   const detectionIntervalRef = useRef<number | null>(null);
-  const poseDetectorRef = useRef<poseDetection.PoseDetector | null>(null);
-  const [poseModelLoaded, setPoseModelLoaded] = useState(false);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
-  // Helper: Estimate height from body pose keypoints - IMPROVED
-  const estimateHeightFromPose = (keypoints: poseDetection.Keypoint[], imageHeight: number): number | null => {
-    try {
-      // Use eyes (more stable than nose) and both ankles for better accuracy
-      const leftEye = keypoints.find(kp => kp.name === 'left_eye');
-      const rightEye = keypoints.find(kp => kp.name === 'right_eye');
-      const leftAnkle = keypoints.find(kp => kp.name === 'left_ankle');
-      const rightAnkle = keypoints.find(kp => kp.name === 'right_ankle');
-      const nose = keypoints.find(kp => kp.name === 'nose');
-
-      // Need eyes and at least one ankle
-      if (!leftEye || !rightEye || (!leftAnkle && !rightAnkle) || !nose) return null;
-
-      // Check confidence scores
-      const minEyeScore = Math.min(leftEye.score ?? 0, rightEye.score ?? 0);
-      if (minEyeScore < 0.4) return null;
-
-      // Average eye position for stability
-      const eyeY = (leftEye.y + rightEye.y) / 2;
-
-      // Average ankle position if both available
-      let ankleY;
-      if (leftAnkle && rightAnkle && (leftAnkle.score ?? 0) > 0.3 && (rightAnkle.score ?? 0) > 0.3) {
-        ankleY = (leftAnkle.y + rightAnkle.y) / 2;
-      } else if (leftAnkle && (leftAnkle.score ?? 0) > 0.3) {
-        ankleY = leftAnkle.y;
-      } else if (rightAnkle && (rightAnkle.score ?? 0) > 0.3) {
-        ankleY = rightAnkle.y;
-      } else {
-        return null;
-      }
-
-      // Body height in pixels (eye to ankle)
-      const bodyHeightPx = Math.abs(ankleY - eyeY);
-
-      // IMPROVED CALIBRATION using head as reference
-      // Average head height from eye to top of head is ~11cm
-      // Distance from eye to nose is roughly 1/3 of eye-to-crown distance
-      const eyeToNosePx = Math.abs(eyeY - nose.y);
-      const estimatedHeadHeightPx = eyeToNosePx * 3; // Approximate head height in pixels
-      const headHeightCm = 22; // Average adult head height
-      const pixelToCm = headHeightCm / estimatedHeadHeightPx;
-
-      // Eye-to-ankle is approximately 85-90% of total height
-      const bodyToHeightRatio = 0.88;
-      let estimatedHeight = Math.round((bodyHeightPx * pixelToCm) / bodyToHeightRatio);
-
-      // Realistic bounds (120cm for children to 210cm for very tall adults)
-      estimatedHeight = Math.min(Math.max(estimatedHeight, 120), 210);
-
-      console.log('Height estimation:', { bodyHeightPx, pixelToCm, estimatedHeight });
-      return estimatedHeight;
-    } catch (error) {
-      console.error('Error estimating height:', error);
-      return null;
-    }
-  };
-
-  // Helper: Estimate weight from body proportions and shape - IMPROVED
-  const estimateWeightFromPose = (
-    keypoints: poseDetection.Keypoint[],
-    gender: 'male' | 'female',
-    height: number
-  ): number | null => {
-    try {
-      // Find shoulder, hip, and torso keypoints
-      const leftShoulder = keypoints.find(kp => kp.name === 'left_shoulder');
-      const rightShoulder = keypoints.find(kp => kp.name === 'right_shoulder');
-      const leftHip = keypoints.find(kp => kp.name === 'left_hip');
-      const rightHip = keypoints.find(kp => kp.name === 'right_hip');
-
-      // Need all four points for build analysis
-      if (!leftShoulder || !rightShoulder || !leftHip || !rightHip) return null;
-      const minScore = Math.min(
-        leftShoulder.score ?? 0,
-        rightShoulder.score ?? 0,
-        leftHip.score ?? 0,
-        rightHip.score ?? 0
-      );
-      if (minScore < 0.4) return null; // Increased threshold for better quality
-
-      // Calculate body measurements in pixels
-      const shoulderWidth = Math.abs(rightShoulder.x - leftShoulder.x);
-      const hipWidth = Math.abs(rightHip.x - leftHip.x);
-      const torsoHeight = Math.abs((leftShoulder.y + rightShoulder.y) / 2 - (leftHip.y + rightHip.y) / 2);
-
-      // Calculate ratios
-      const shoulderToHipRatio = shoulderWidth / hipWidth;
-      const torsoToHipRatio = torsoHeight / hipWidth;
-
-      // Base BMI for Indian population (slightly lower than Western averages)
-      const baseBMI = gender === 'male' ? 22.0 : 21.0;
-
-      // Adjust BMI based on body proportions
-      let adjustedBMI = baseBMI;
-
-      // Shoulder-to-hip ratio adjustment
-      if (shoulderToHipRatio > 1.15) {
-        // Broader shoulders suggest more muscle mass
-        adjustedBMI += (shoulderToHipRatio - 1.15) * 3.5;
-      } else if (shoulderToHipRatio < 0.95) {
-        // Wider hips suggest different build
-        adjustedBMI += (0.95 - shoulderToHipRatio) * 2;
-      }
-
-      // Torso proportion adjustment (taller torso may indicate different build)
-      if (torsoToHipRatio > 1.3) {
-        adjustedBMI += (torsoToHipRatio - 1.3) * 1.5;
-      }
-
-      // Calculate weight from BMI: weight = BMI × (height in meters)²
-      const heightM = height / 100;
-      let estimatedWeight = Math.round(adjustedBMI * heightM * heightM);
-
-      // Realistic bounds for Indian population (30kg to 150kg)
-      estimatedWeight = Math.min(Math.max(estimatedWeight, 30), 150);
-
-      console.log('Weight estimation:', { shoulderToHipRatio, adjustedBMI, estimatedWeight });
-      return estimatedWeight;
-    } catch (error) {
-      console.error('Error estimating weight:', error);
-      return null;
-    }
-  };
 
   // Load face-api.js models and TensorFlow pose detection
   useEffect(() => {
@@ -205,23 +74,19 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
           throw new Error('Failed to load face detection models from all sources');
         }
 
-        // Load MoveNet pose detection model for height/weight estimation
-        try {
-          console.log('Loading MoveNet THUNDER pose detection model...');
+        // Load MoveNet pose detection model (optional) - TEMPORARILY DISABLED for debugging
+        /* try {
           const model = poseDetection.SupportedModels.MoveNet;
           const detectorConfig = {
-            modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER, // Upgraded from LIGHTNING for better accuracy
-            enableSmoothing: true, // Reduce jitter in keypoint detection
+            modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
           };
           const detector = await poseDetection.createDetector(model, detectorConfig);
           poseDetectorRef.current = detector;
           setPoseModelLoaded(true);
-          console.log('✓ MoveNet THUNDER model loaded successfully - Enhanced accuracy enabled');
         } catch (poseErr) {
           console.warn('Pose model loading failed, will use fallback estimation:', poseErr);
-          setPoseModelLoaded(false);
           // Pose detection is optional - continue without it
-        }
+        } */
 
         setIsLoading(false);
       } catch (err) {
@@ -421,26 +286,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
         let estimatedHeight: number | null = null;
         let estimatedWeight: number | null = null;
 
-        if (poseDetectorRef.current && poseModelLoaded) {
-          try {
-            // Detect body pose from captured image
-            const poses = await poseDetectorRef.current.estimatePoses(canvas);
-
-            if (poses.length > 0 && poses[0].keypoints) {
-              const keypoints = poses[0].keypoints;
-
-              // Estimate height from body proportions
-              estimatedHeight = estimateHeightFromPose(keypoints, canvas.height);
-
-              // If we got a height estimate, calculate weight
-              if (estimatedHeight) {
-                estimatedWeight = estimateWeightFromPose(keypoints, gender, estimatedHeight);
-              }
-            }
-          } catch (poseError) {
-            console.warn('Pose detection failed, falling back to heuristics:', poseError);
-          }
-        }
+        // Pose detection is currently disabled - using heuristic estimation only
 
         // Fallback to heuristic estimation if pose detection failed
         if (!estimatedHeight || !estimatedWeight) {
