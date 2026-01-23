@@ -207,16 +207,16 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
 
         // Load MoveNet pose detection model for height/weight estimation
         try {
-          console.log('Loading MoveNet pose detection model...');
+          console.log('Loading MoveNet THUNDER pose detection model...');
           const model = poseDetection.SupportedModels.MoveNet;
           const detectorConfig = {
-            modelType: poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+            modelType: poseDetection.movenet.modelType.SINGLEPOSE_THUNDER, // Upgraded from LIGHTNING for better accuracy
             enableSmoothing: true, // Reduce jitter in keypoint detection
           };
           const detector = await poseDetection.createDetector(model, detectorConfig);
           poseDetectorRef.current = detector;
           setPoseModelLoaded(true);
-          console.log('✓ MoveNet pose detection model loaded successfully');
+          console.log('✓ MoveNet THUNDER model loaded successfully - Enhanced accuracy enabled');
         } catch (poseErr) {
           console.warn('Pose model loading failed, will use fallback estimation:', poseErr);
           setPoseModelLoaded(false);
