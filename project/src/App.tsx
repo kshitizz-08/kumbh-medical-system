@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense, useCallback, memo } from 'react';
-import { UserPlus, Search, Heart, CheckCircle2, Home, Loader2, Copy, Check, X, BarChart3 } from 'lucide-react';
+import { UserPlus, Search, Heart, CheckCircle2, Home, Loader2, Copy, Check, X, BarChart3, ArrowLeft } from 'lucide-react';
 import { Devotee, MedicalRecord, DevoteeWithRecord } from './lib/api';
 import { useI18n } from './i18n/i18n';
 
@@ -265,19 +265,20 @@ function App() {
 
         {currentView === 'register' && (
           <div>
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setCurrentView('home')}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
+                aria-label={t('nav.backHome')}
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
               <div>
                 <h2 className="text-2xl font-bold text-kumbh-deep">{t('register.pageTitle')}</h2>
                 <p className="text-slate-600">
                   {t('register.pageDesc')}
                 </p>
               </div>
-              <button
-                onClick={() => setCurrentView('home')}
-                className="px-4 py-2 text-slate-600 hover:text-kumbh-deep font-medium"
-              >
-                {t('nav.backHome')}
-              </button>
             </div>
 
             {registrationSuccess && (
@@ -339,19 +340,20 @@ function App() {
 
         {currentView === 'search' && (
           <div>
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setCurrentView('home')}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
+                aria-label={t('nav.backHome')}
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
               <div>
                 <h2 className="text-2xl font-bold text-kumbh-deep">{t('search.pageTitle')}</h2>
                 <p className="text-slate-600">
                   {t('search.pageDesc')}
                 </p>
               </div>
-              <button
-                onClick={() => setCurrentView('home')}
-                className="px-4 py-2 text-slate-600 hover:text-kumbh-deep font-medium"
-              >
-                {t('nav.backHome')}
-              </button>
             </div>
 
             <Suspense fallback={<ComponentLoader />}>
