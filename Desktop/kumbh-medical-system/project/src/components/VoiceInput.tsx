@@ -23,6 +23,11 @@ export default function VoiceInput({
     const MAX_RETRIES = 2;
 
     useEffect(() => {
+        // Reset state when language changes
+        setIsListening(false);
+        setInterimTranscript('');
+        retryCountRef.current = 0;
+
         // Check for browser support
         if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
             setIsSupported(false);
@@ -36,8 +41,10 @@ export default function VoiceInput({
         // Enhanced configuration for better accuracy
         recognitionInstance.continuous = false;
         recognitionInstance.interimResults = true; // Enable interim results for real-time feedback
-        recognitionInstance.maxAlternatives = 3; // Get multiple alternatives for better accuracy
+        recognitionInstance.maxAlternatives = 5; // Increased from 3 to 5 for better accuracy
         recognitionInstance.lang = language;
+
+        console.log('Initializing voice recognition for language:', language);
 
         recognitionInstance.onstart = () => {
             setIsListening(true);
@@ -150,12 +157,13 @@ export default function VoiceInput({
         setRecognition(recognitionInstance);
 
         return () => {
-            // Cleanup
+            // Cleanup: Stop recognition when component unmounts or language changes
+            console.log('Cleaning up voice recognition for language:', language);
             if (recognitionInstance) {
                 try {
-                    recognitionInstance.stop();
+                    recognitionInstance.abort(); // Use abort() instead of stop() for immediate cleanup
                 } catch (e) {
-                    // Ignore errors on cleanup
+                    console.warn('Error during voice recognition cleanup:', e);
                 }
             }
         };
