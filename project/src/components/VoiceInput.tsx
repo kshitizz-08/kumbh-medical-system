@@ -116,9 +116,11 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
                     setError(t('common.voiceNoMic') || 'No speech detected');
                 }
             } else if (event.error === 'not-allowed') {
-                setError(t('common.voiceMicDenied') || 'Microphone access denied');
+                setError('Microphone access denied. Please check your browser settings.');
             } else if (event.error === 'network') {
-                setError(t('common.voiceNetworkError') || 'Network error');
+                setError('Network error. Check your internet connection.');
+            } else if (event.error === 'service-not-allowed') {
+                setError('Voice recognition service not allowed. PLEASE TRY USING CHROME ON DESKTOP OR SAFARI ON IOS.');
             } else if (event.error === 'aborted') {
                 // Ignore aborted errors as they are likely manual stops
             } else {
