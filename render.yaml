@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: kumbh-medical-system
+    env: node
+    rootDir: project
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: MONGODB_URI
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: FACEPP_API_KEY
+        sync: false
+      - key: FACEPP_API_SECRET
+        sync: false
