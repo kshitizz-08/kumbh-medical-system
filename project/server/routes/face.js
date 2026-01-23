@@ -8,8 +8,8 @@ const router = express.Router();
 router.post('/analyze', async (req, res) => {
     try {
         const { image } = req.body; // Expecting base64 string
-        const apiKey = process.env.FACEPP_API_KEY;
-        const apiSecret = process.env.FACEPP_API_SECRET;
+        const apiKey = (process.env.FACEPP_API_KEY || '').trim();
+        const apiSecret = (process.env.FACEPP_API_SECRET || '').trim();
 
         if (!apiKey || !apiSecret) {
             // For development/demo without keys, we can return a mock response or error
