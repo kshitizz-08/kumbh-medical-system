@@ -43,7 +43,7 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
         // Reset state on language change
         setIsListening(false);
         setInterimTranscript('');
-        setError(null); 
+        setError(null);
         retryCountRef.current = 0;
 
         // Abort any existing recognition instance
@@ -150,7 +150,7 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
         } else {
             setError(null);
             retryCountRef.current = 0;
-            
+
             // For mobile compatibility (especially iOS), we must call start() DIRECTLY in the user event handler.
             // Do NOT use setTimeout or extensive logic before this call if possible.
             try {
@@ -161,8 +161,8 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
             } catch (err: any) {
                 console.error('Failed to start recognition:', err);
                 if (err.message && err.message.includes('already started')) {
-                     // If it's already started, we might seek to stop it instead, effectively toggling it.
-                     recognitionRef.current?.stop();
+                    // If it's already started, we might seek to stop it instead, effectively toggling it.
+                    recognitionRef.current?.stop();
                 } else {
                     setError('Could not start microphone.');
                 }
@@ -177,10 +177,14 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
                     type="button"
                     onClick={() => setError(null)}
                     className={`p-2 rounded-full bg-red-100 text-red-600 hover:bg-red-200 transition-colors ${className}`}
-                    title={error}
                 >
                     <AlertCircle className="w-5 h-5" />
                 </button>
+                {/* Mobile-friendly error popup */}
+                <div className="absolute top-full left-1/2 transform -translate-x-1/2 mt-2 w-48 bg-red-50 border border-red-200 p-2 rounded-lg z-50 shadow-lg text-center">
+                    <p className="text-xs text-red-700">{error}</p>
+                    <p className="text-[10px] text-red-500 mt-1">(Click icon to dismiss)</p>
+                </div>
             </div>
         );
     }
