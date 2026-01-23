@@ -4,6 +4,7 @@ import { registerDevotee, CreateDevoteePayload } from '../lib/api';
 import { useI18n } from '../i18n/i18n';
 import SelfieCapture from './SelfieCapture';
 import VoiceInput from './VoiceInput';
+import { parseSpokenPhoneNumber } from '../utils/textUtils';
 
 type RegistrationFormProps = {
     onSuccess: (regNumber: string) => void;
@@ -42,10 +43,30 @@ export default function RegistrationForm({ onSuccess }: RegistrationFormProps) {
 
     // Handle voice updates
     const handleVoiceInput = (field: keyof CreateDevoteePayload, text: string) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: text
-        }));
+        setFormData(prev => {
+            let newValue = text;
+
+            // field-specific processing
+            if (field === 'phone' || field === 'emergency_contact_phone') {
+                newValue = parseSpokenPhoneNumber(text);
+            } else if (['chronic_conditions', 'current_medications', 'past_surgeries', 'allergies'].includes(field)) {
+                // For list fields, APPEND to existing value instead of replacing
+                const currentValue = prev[field] as string;
+                if (currentValue && currentValue !== 'None') {
+                    // Check if text already exists to prevent duplicates (simple check)
+                    if (!currentValue.toLowerCase().includes(text.toLowerCase())) {
+                        newValue = `${currentValue}, ${text}`;
+                    } else {
+                        newValue = currentValue; // No change if duplicate
+                    }
+                }
+            }
+
+            return {
+                ...prev,
+                [field]: newValue
+            };
+        });
     };
 
     const handleCapture = (image: string, descriptor: number[] | null, demographics?: any) => {

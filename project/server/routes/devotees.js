@@ -30,6 +30,8 @@ router.post('/', async (req, res) => {
   session.startTransaction();
 
   try {
+    console.log('Registering Devotee Payload:', JSON.stringify(req.body, null, 2));
+
     const registration_number = generateRegistrationNumber();
 
     const devoteeDoc = await Devotee.create(
