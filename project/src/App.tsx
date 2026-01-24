@@ -229,28 +229,28 @@ function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white/90 backdrop-blur border border-orange-200/70 rounded-2xl p-6 shadow-md">
-                <h3 className="font-semibold text-orange-900 mb-2">{t('home.designedFor.title')}</h3>
-                <ul className="space-y-2 text-sm text-orange-800">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    {t('home.designedFor.1')}
+              <div className="bg-gradient-to-br from-orange-50 to-amber-50/90 backdrop-blur border border-orange-300/50 rounded-2xl p-6 shadow-lg">
+                <h3 className="text-xl font-bold text-orange-900 mb-4">{t('home.designedFor.title')}</h3>
+                <ul className="space-y-3 text-base text-orange-800">
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                    <span>{t('home.designedFor.1')}</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    {t('home.designedFor.2')}
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                    <span>{t('home.designedFor.2')}</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    {t('home.designedFor.3')}
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                    <span>{t('home.designedFor.3')}</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    {t('home.designedFor.4')}
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                    <span>{t('home.designedFor.4')}</span>
                   </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4" />
-                    {t('home.designedFor.5')}
+                  <li className="flex items-center gap-3">
+                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                    <span>{t('home.designedFor.5')}</span>
                   </li>
                 </ul>
               </div>
@@ -274,8 +274,8 @@ function App() {
                 <ArrowLeft className="w-6 h-6" />
               </button>
               <div>
-                <h2 className="text-2xl font-bold text-kumbh-deep">{t('register.pageTitle')}</h2>
-                <p className="text-slate-600">
+                <h2 className="text-3xl font-bold text-kumbh-deep">{t('register.pageTitle')}</h2>
+                <p className="text-base text-slate-600 mt-1">
                   {t('register.pageDesc')}
                 </p>
               </div>
@@ -283,7 +283,7 @@ function App() {
 
             {registrationSuccess && (
               <div className="fixed bottom-6 right-6 z-50 animate-slide-up">
-                <div className="bg-white rounded-2xl shadow-2xl border border-green-300 p-5 max-w-md">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl shadow-2xl border-2 border-green-400 p-5 max-w-md">
                   <div className="flex items-start gap-4">
                     <div className="w-12 h-12 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0">
                       <CheckCircle2 className="w-7 h-7 text-white" />
@@ -349,8 +349,8 @@ function App() {
                 <ArrowLeft className="w-6 h-6" />
               </button>
               <div>
-                <h2 className="text-2xl font-bold text-kumbh-deep">{t('search.pageTitle')}</h2>
-                <p className="text-slate-600">
+                <h2 className="text-3xl font-bold text-kumbh-deep">{t('search.pageTitle')}</h2>
+                <p className="text-base text-slate-600 mt-1">
                   {t('search.pageDesc')}
                 </p>
               </div>

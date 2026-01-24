@@ -107,6 +107,7 @@ export type LostPerson = {
   current_location?: string;
   created_at?: string;
   match_similarity?: number; // Added when matching
+  face_descriptor?: number[] | null;
 };
 
 export type MedicalIncident = {

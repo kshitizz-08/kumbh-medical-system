@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Camera, Search, User, Phone, MapPin, CheckCircle, AlertTriangle, ArrowRight } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Phone } from 'lucide-react';
 import SelfieCapture from './SelfieCapture';
 import { reportLostFound, matchFace, getLostFoundList, LostPerson } from '../lib/api';
 import { useI18n } from '../i18n/i18n';
@@ -36,7 +36,7 @@ export default function LostFoundDashboard() {
         }
     };
 
-    const handleCapture = async (imageData: string, descriptor: Float32Array | null, demographics?: any) => {
+    const handleCapture = async (imageData: string, descriptor: number[] | null, demographics?: any) => {
         setShowCamera(false);
 
         if (!descriptor) {
@@ -44,7 +44,7 @@ export default function LostFoundDashboard() {
             return;
         }
 
-        const descriptorArray = Array.from(descriptor);
+        const descriptorArray = descriptor; // Already number[]
 
         if (scanMode === 'match') {
             // Find Match
@@ -60,7 +60,7 @@ export default function LostFoundDashboard() {
             setFormData(prev => ({
                 ...prev,
                 photo_url: imageData,
-                // @ts-ignore - storing descriptor temporarily to send later
+                // storing descriptor temporarily to send later
                 face_descriptor: descriptorArray,
                 age: demographics?.age,
                 gender: demographics?.gender || 'Unknown'
@@ -75,7 +75,6 @@ export default function LostFoundDashboard() {
             await reportLostFound({
                 ...formData,
                 // Ensure descriptor is present
-                // @ts-ignore
                 face_descriptor: formData.face_descriptor
             });
             alert('Report submitted successfully');
@@ -83,7 +82,7 @@ export default function LostFoundDashboard() {
             loadRecent();
         } catch (e: any) {
             console.error(e);
-            alert(`Failed to submit report: ${e.message}`);
+            alert(`Failed to submit report: ${e.message} `);
         } finally {
             setIsSubmitting(false);
         }
