@@ -70,6 +70,25 @@ export default function SearchInterface({ onSelectDevotee }: { onSelectDevotee: 
   return (
     <div className="space-y-4">
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 space-y-3">
+        {/* Search by Face button - Prominent & Top */}
+        <button
+          type="button"
+          onClick={() => setShowFaceSearch(true)}
+          className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white text-lg font-semibold px-6 py-4 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-3"
+        >
+          <Camera className="w-6 h-6" />
+          {t('search.byFace')}
+        </button>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center" aria-hidden="true">
+            <div className="w-full border-t border-gray-200"></div>
+          </div>
+          <div className="relative flex justify-center text-sm">
+            <span className="px-2 bg-white text-gray-500">{t('search.orSeparator')}</span>
+          </div>
+        </div>
+
         {/* Main search row */}
         <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3">
           <select
@@ -162,14 +181,6 @@ export default function SearchInterface({ onSelectDevotee }: { onSelectDevotee: 
         </div>
 
         {/* Search by Face button */}
-        <button
-          type="button"
-          onClick={() => setShowFaceSearch(true)}
-          className="w-full md:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-md hover:border-blue-500 hover:bg-blue-50 text-gray-700 text-sm transition-colors"
-        >
-          <Camera className="w-4 h-4" />
-          {t('search.byFace')}
-        </button>
       </div>
 
       {searched && (
