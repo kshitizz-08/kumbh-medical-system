@@ -61,9 +61,17 @@ const DICT: Record<Language, Dictionary> = {
     'lang.mr': 'मराठी',
     'lang.current': ({ code }: any) => `Using ${code}`,
 
-    // Registration success
+    // Page Titles and Descriptions
     'register.pageTitle': 'New Yatri Registration',
     'register.pageDesc': 'Record yatri details and medical history for Nashik Kumbh Mela',
+    'search.pageTitle': 'Emergency Record Search',
+    'search.pageDesc': 'Quickly locate yatri medical records during critical incidents',
+    'analytics.pageTitle': 'Health Analytics Dashboard',
+    'analytics.pageDesc': 'Real-time insights on pilgrim health and crowd demographics',
+    'lost.pageTitle': 'Lost & Found',
+    'lost.pageDesc': 'AI-powered face recognition to reunite lost family members',
+    'highRisk.pageTitle': 'High-Risk Patient Monitor',
+    'highRisk.pageDesc': 'AI-powered risk assessment for patients needing immediate care',
     'register.successTitle': 'Registration Successful!',
     'register.kumbhId': 'Kumbh Reg ID:',
     'register.redirecting': 'Redirecting to home in a moment...',

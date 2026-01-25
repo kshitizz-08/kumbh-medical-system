@@ -385,21 +385,75 @@ function App() {
         )}
 
         {currentView === 'analytics' && (
-          <Suspense fallback={<ComponentLoader />}>
-            <AnalyticsDashboard />
-          </Suspense>
+          <div>
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setCurrentView('home')}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
+                aria-label={t('nav.backHome')}
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-3xl font-bold text-kumbh-deep">{t('analytics.pageTitle')}</h2>
+                <p className="text-base text-slate-600 mt-1">
+                  {t('analytics.pageDesc')}
+                </p>
+              </div>
+            </div>
+
+            <Suspense fallback={<ComponentLoader />}>
+              <AnalyticsDashboard />
+            </Suspense>
+          </div>
         )}
 
         {currentView === 'lost-found' && (
-          <Suspense fallback={<ComponentLoader />}>
-            <LostFoundDashboard />
-          </Suspense>
+          <div>
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setCurrentView('home')}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
+                aria-label={t('nav.backHome')}
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-3xl font-bold text-kumbh-deep">{t('lost.pageTitle')}</h2>
+                <p className="text-base text-slate-600 mt-1">
+                  {t('lost.pageDesc')}
+                </p>
+              </div>
+            </div>
+
+            <Suspense fallback={<ComponentLoader />}>
+              <LostFoundDashboard />
+            </Suspense>
+          </div>
         )}
 
         {currentView === 'high-risk' && (
-          <Suspense fallback={<ComponentLoader />}>
-            <HighRiskDashboard onSelectDevotee={handleSelectDevotee} />
-          </Suspense>
+          <div>
+            <div className="mb-6 flex items-center gap-4">
+              <button
+                onClick={() => setCurrentView('home')}
+                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
+                aria-label={t('nav.backHome')}
+              >
+                <ArrowLeft className="w-6 h-6" />
+              </button>
+              <div>
+                <h2 className="text-3xl font-bold text-kumbh-deep">{t('highRisk.pageTitle')}</h2>
+                <p className="text-base text-slate-600 mt-1">
+                  {t('highRisk.pageDesc')}
+                </p>
+              </div>
+            </div>
+
+            <Suspense fallback={<ComponentLoader />}>
+              <HighRiskDashboard onSelectDevotee={handleSelectDevotee} />
+            </Suspense>
+          </div>
         )}
       </main>
 
