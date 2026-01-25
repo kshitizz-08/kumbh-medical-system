@@ -48,18 +48,26 @@ async function fetchWeatherData(apiKey) {
         // Fetch current weather and air pollution data
         const weatherUrl = `https://api.openweathermap.org/data/2.5/weather?lat=${NASHIK_LAT}&lon=${NASHIK_LON}&appid=${apiKey}&units=metric`;
         const airPollutionUrl = `https://api.openweathermap.org/data/2.5/air_pollution?lat=${NASHIK_LAT}&lon=${NASHIK_LON}&appid=${apiKey}`;
+        const uvUrl = `https://api.openweathermap.org/data/2.5/uvi?lat=${NASHIK_LAT}&lon=${NASHIK_LON}&appid=${apiKey}`;
 
-        const [weatherData, airData] = await Promise.all([
+        const [weatherData, airData, uvData] = await Promise.all([
             httpsGet(weatherUrl),
-            httpsGet(airPollutionUrl)
+            httpsGet(airPollutionUrl),
+            httpsGet(uvUrl).catch(() => ({ value: 5 })) // Default UV if fails
         ]);
 
         return {
             temperature: Math.round(weatherData.main.temp),
             feelsLike: Math.round(weatherData.main.feels_like),
             humidity: weatherData.main.humidity,
+            pressure: weatherData.main.pressure,
             description: weatherData.weather[0].description,
             icon: weatherData.weather[0].icon,
+            windSpeed: Math.round(weatherData.wind.speed * 3.6), // Convert m/s to km/h
+            windDeg: weatherData.wind.deg || 0,
+            visibility: Math.round((weatherData.visibility || 10000) / 1000), // Convert to km
+            clouds: weatherData.clouds.all,
+            uvIndex: Math.round(uvData.value || 5),
             aqi: airData.list[0].main.aqi, // 1=Good, 2=Fair, 3=Moderate, 4=Poor, 5=Very Poor
             pollutants: airData.list[0].components,
             location: 'Nashik',
@@ -136,8 +144,14 @@ router.get('/current', async (req, res) => {
                 temperature: 32,
                 feelsLike: 35,
                 humidity: 45,
+                pressure: 1013,
                 description: 'clear sky',
                 icon: '01d',
+                windSpeed: 12,
+                windDeg: 180,
+                visibility: 10,
+                clouds: 10,
+                uvIndex: 7,
                 aqi: 2,
                 location: 'Nashik (Demo Mode)'
             });
@@ -172,8 +186,14 @@ router.get('/current', async (req, res) => {
                 temperature: 28,
                 feelsLike: 31,
                 humidity: 55,
+                pressure: 1012,
                 description: 'partly cloudy',
                 icon: '02d',
+                windSpeed: 8,
+                windDeg: 200,
+                visibility: 10,
+                clouds: 40,
+                uvIndex: 5,
                 aqi: 2,
                 location: 'Nashik (Demo - API Key Pending Activation)',
                 note: 'Demo data shown. OpenWeatherMap API keys take 2-10 hours to activate after creation.'

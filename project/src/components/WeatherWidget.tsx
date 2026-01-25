@@ -6,8 +6,14 @@ type WeatherData = {
     temperature: number;
     feelsLike: number;
     humidity: number;
+    pressure: number;
     description: string;
     icon: string;
+    windSpeed: number;
+    windDeg: number;
+    visibility: number;
+    clouds: number;
+    uvIndex: number;
     aqi: number;
     location: string;
     cached?: boolean;
@@ -20,6 +26,15 @@ const AQI_LABELS = {
 };
 
 const AQI_COLORS = ['bg-green-500', 'bg-yellow-500', 'bg-orange-500', 'bg-red-500', 'bg-purple-500'];
+
+const UV_LABELS = {
+    en: ['Low', 'Low', 'Moderate', 'Moderate', 'High', 'High', 'Very High', 'Very High', 'Extreme', 'Extreme', 'Extreme'],
+    hi: ['कम', 'कम', 'मध्यम', 'मध्यम', 'उच्च', 'उच्च', 'बहुत उच्च', 'बहुत उच्च', 'गंभीर', 'गंभीर', 'गंभीर'],
+    mr: ['कमी', 'कमी', 'मध्यम', 'मध्यम', 'उच्च', 'उच्च', 'अतिउच्च', 'अतिउच्च', 'अत्यंत', 'अत्यंत', 'अत्यंत']
+};
+
+const UV_COLORS = ['bg-green-500', 'bg-green-500', 'bg-yellow-500', 'bg-yellow-500', 'bg-orange-500', 'bg-orange-500',
+    'bg-red-500', 'bg-red-500', 'bg-purple-500', 'bg-purple-500', 'bg-purple-500'];
 
 export default function WeatherWidget() {
     const { lang } = useI18n();
@@ -78,107 +93,207 @@ export default function WeatherWidget() {
     const aqiLabel = AQI_LABELS[lang][aqiIndex] || AQI_LABELS.en[aqiIndex];
     const aqiColor = AQI_COLORS[aqiIndex];
 
+    // Calculate UV Index label and color
+    const uvIndex = weather.uvIndex !== undefined ? Math.min(weather.uvIndex, 10) : 5;
+    const uvLabel = UV_LABELS[lang][uvIndex] || UV_LABELS.en[uvIndex];
+    const uvColor = UV_COLORS[uvIndex];
+
     return (
-        <div className="bg-gradient-to-br from-blue-50 to-sky-100 border border-blue-200 rounded-xl p-5 shadow-sm">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-2">
-                    <Cloud className="w-5 h-5 text-blue-600" />
-                    <h3 className="font-semibold text-blue-900">
-                        {lang === 'hi' ? 'वर्तमान मौसम' : lang === 'mr' ? 'सध्याचे हवामान' : 'Current Weather'}
-                    </h3>
-                </div>
-                <div className="text-xs text-blue-600">
-                    {weather.location}
-                </div>
+        <div className="relative bg-gradient-to-br from-sky-400 via-blue-500 to-indigo-600 rounded-2xl p-6 shadow-2xl overflow-hidden">
+            {/* Animated Background Elements */}
+            <div className="absolute inset-0 opacity-20">
+                <div className="absolute top-10 right-10 w-32 h-32 bg-white rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-10 left-10 w-40 h-40 bg-yellow-200 rounded-full blur-3xl animate-pulse delay-1000"></div>
             </div>
 
-            {/* Temperature Section */}
-            <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-3">
-                    <Thermometer className="w-8 h-8 text-orange-500" />
-                    <div>
-                        <div className="text-3xl font-bold text-blue-900">{weather.temperature}°C</div>
-                        <div className="text-xs text-blue-700">
-                            {lang === 'hi' ? 'महसूस: ' : lang === 'mr' ? 'वाटतं: ' : 'Feels like: '}
-                            {weather.feelsLike}°C
+            {/* Main Content */}
+            <div className="relative z-10">
+                {/* Header */}
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-3">
+                        <div className="bg-white/20 backdrop-blur-sm p-2 rounded-lg">
+                            <Cloud className="w-6 h-6 text-white" />
+                        </div>
+                        <h3 className="text-xl font-bold text-white">
+                            {lang === 'hi' ? 'वर्तमान मौसम' : lang === 'mr' ? 'सध्याचे हवामान' : 'Current Weather'}
+                        </h3>
+                    </div>
+                    <div className="bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full">
+                        <span className="text-white text-sm font-semibold">{weather.location}</span>
+                    </div>
+                </div>
+
+                {/* Temperature Hero Section */}
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                        <div className="bg-gradient-to-br from-orange-400 to-red-500 p-4 rounded-2xl shadow-lg">
+                            <Thermometer className="w-10 h-10 text-white" />
+                        </div>
+                        <div>
+                            <div className="text-6xl font-bold text-white drop-shadow-lg">
+                                {weather.temperature}°C
+                            </div>
+                            <div className="text-white/80 text-sm mt-1">
+                                {lang === 'hi' ? 'महसूस: ' : lang === 'mr' ? 'वाटतं: ' : 'Feels like: '}
+                                <span className="font-semibold">{weather.feelsLike}°C</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="text-center">
+                        <img
+                            src={`https://openweathermap.org/img/wn/${weather.icon}@4x.png`}
+                            alt={weather.description}
+                            className="w-32 h-32 drop-shadow-2xl"
+                        />
+                        <div className="text-white text-sm font-medium capitalize -mt-2">
+                            {weather.description}
                         </div>
                     </div>
                 </div>
-                <div className="text-right">
-                    <img
-                        src={`https://openweathermap.org/img/wn/${weather.icon}@2x.png`}
-                        alt={weather.description}
-                        className="w-16 h-16"
-                    />
-                    <div className="text-xs text-blue-700 capitalize">{weather.description}</div>
-                </div>
-            </div>
 
-            {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="bg-white/60 rounded-lg p-3 flex items-center gap-2">
-                    <Droplets className="w-4 h-4 text-blue-600" />
-                    <div>
-                        <div className="text-xs text-blue-700">
-                            {lang === 'hi' ? 'नमी' : lang === 'mr' ? 'आर्द्रता' : 'Humidity'}
+                {/* Weather Metrics Grid */}
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                    {/* Humidity */}
+                    <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-xl p-4 hover:bg-white/25 transition-all duration-300 hover:scale-105">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Droplets className="w-5 h-5 text-cyan-200" />
+                            <span className="text-white/80 text-xs font-medium">
+                                {lang === 'hi' ? 'नमी' : lang === 'mr' ? 'आर्द्रता' : 'Humidity'}
+                            </span>
                         </div>
-                        <div className="font-semibold text-blue-900">{weather.humidity}%</div>
+                        <div className="text-2xl font-bold text-white">{weather.humidity}%</div>
                     </div>
-                </div>
-                <div className="bg-white/60 rounded-lg p-3 flex items-center gap-2">
-                    <Wind className="w-4 h-4 text-blue-600" />
-                    <div>
-                        <div className="text-xs text-blue-700">
-                            {lang === 'hi' ? 'वायु गुणवत्ता' : lang === 'mr' ? 'हवा गुणवत्ता' : 'Air Quality'}
+
+                    {/* Air Quality */}
+                    <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-xl p-4 hover:bg-white/25 transition-all duration-300 hover:scale-105">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Wind className="w-5 h-5 text-green-200" />
+                            <span className="text-white/80 text-xs font-medium">
+                                {lang === 'hi' ? 'वायु' : lang === 'mr' ? 'हवा' : 'Air Quality'}
+                            </span>
                         </div>
-                        <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-white text-xs font-semibold ${aqiColor}`}>
+                        <div className={`inline-block px-3 py-1 rounded-lg text-xs font-bold ${aqiColor} text-white shadow-lg`}>
                             {aqiLabel}
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Heat Warning */}
-            {(weather.temperature >= 35 || weather.feelsLike >= 35) && (
-                <div className="bg-orange-100 border border-orange-300 rounded-lg p-3 flex items-start gap-2">
-                    <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
-                    <div className="text-xs text-orange-800">
-                        <strong>
-                            {lang === 'hi' ? 'गर्मी चेतावनी!' : lang === 'mr' ? 'उष्णता सतर्कता!' : 'Heat Warning!'}
-                        </strong>{' '}
-                        {lang === 'hi'
-                            ? 'खूब पानी पिएं और बाहरी गतिविधियों को सीमित करें।'
-                            : lang === 'mr'
-                                ? 'भरपूर पाणी प्या आणि बाहेरची कामे मर्यादित करा.'
-                                : 'Stay hydrated and limit outdoor activities.'
-                        }
+                    {/* UV Index */}
+                    <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-xl p-4 hover:bg-white/25 transition-all duration-300 hover:scale-105">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Thermometer className="w-5 h-5 text-orange-200" />
+                            <span className="text-white/80 text-xs font-medium">
+                                {lang === 'hi' ? 'UV' : lang === 'mr' ? 'UV' : 'UV Index'}
+                            </span>
+                        </div>
+                        {weather.uvIndex !== undefined ? (
+                            <div className={`inline-block px-3 py-1 rounded-lg text-xs font-bold ${uvColor} text-white shadow-lg`}>
+                                {weather.uvIndex} - {uvLabel}
+                            </div>
+                        ) : (
+                            <div className="text-2xl font-bold text-white">--</div>
+                        )}
+                    </div>
+
+                    {/* Wind Speed */}
+                    <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-xl p-4 hover:bg-white/25 transition-all duration-300 hover:scale-105">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Wind className="w-5 h-5 text-blue-200" />
+                            <span className="text-white/80 text-xs font-medium">
+                                {lang === 'hi' ? 'हवा' : lang === 'mr' ? 'वारा' : 'Wind'}
+                            </span>
+                        </div>
+                        <div className="text-xl font-bold text-white">
+                            {weather.windSpeed !== undefined ? `${weather.windSpeed} km/h` : '--'}
+                        </div>
+                    </div>
+
+                    {/* Visibility */}
+                    <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-xl p-4 hover:bg-white/25 transition-all duration-300 hover:scale-105">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Cloud className="w-5 h-5 text-gray-200" />
+                            <span className="text-white/80 text-xs font-medium">
+                                {lang === 'hi' ? 'दृश्यता' : lang === 'mr' ? 'दृश्यता' : 'Visibility'}
+                            </span>
+                        </div>
+                        <div className="text-xl font-bold text-white">
+                            {weather.visibility !== undefined ? `${weather.visibility} km` : '--'}
+                        </div>
+                    </div>
+
+                    {/* Pressure */}
+                    <div className="bg-white/15 backdrop-blur-md border border-white/20 rounded-xl p-4 hover:bg-white/25 transition-all duration-300 hover:scale-105">
+                        <div className="flex items-center gap-2 mb-2">
+                            <AlertTriangle className="w-5 h-5 text-purple-200" />
+                            <span className="text-white/80 text-xs font-medium">
+                                {lang === 'hi' ? 'दबाव' : lang === 'mr' ? 'दाब' : 'Pressure'}
+                            </span>
+                        </div>
+                        <div className="text-xl font-bold text-white">
+                            {weather.pressure !== undefined ? `${weather.pressure} hPa` : '--'}
+                        </div>
                     </div>
                 </div>
-            )}
 
-            {/* Pollution Warning */}
-            {weather.aqi >= 3 && (
-                <div className={`${weather.aqi >= 4 ? 'bg-red-100 border-red-300' : 'bg-yellow-100 border-yellow-300'} border rounded-lg p-3 flex items-start gap-2 mt-2`}>
-                    <AlertTriangle className={`w-4 h-4 ${weather.aqi >= 4 ? 'text-red-600' : 'text-yellow-600'} flex-shrink-0 mt-0.5`} />
-                    <div className={`text-xs ${weather.aqi >= 4 ? 'text-red-800' : 'text-yellow-800'}`}>
-                        <strong>
-                            {lang === 'hi' ? 'प्रदूषण चेतावनी!' : lang === 'mr' ? 'प्रदूषण सतर्कता!' : 'Pollution Alert!'}
-                        </strong>{' '}
-                        {lang === 'hi'
-                            ? 'बाहर जाते समय मास्क पहनें।'
-                            : lang === 'mr'
-                                ? 'बाहेर जाताना मास्क घाला.'
-                                : 'Wear a mask when outdoors.'
-                        }
+                {/* UV Warning */}
+                {weather.uvIndex !== undefined && weather.uvIndex >= 6 && (
+                    <div className={`${weather.uvIndex >= 8 ? 'bg-red-500/90' : 'bg-orange-500/90'} backdrop-blur-sm border border-white/30 rounded-xl p-3 flex items-start gap-3 mb-3 animate-pulse`}>
+                        <AlertTriangle className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-white">
+                            <strong>
+                                {lang === 'hi' ? '⚠️ UV चेतावनी!' : lang === 'mr' ? '⚠️ UV सतर्कता!' : '⚠️ UV Warning!'}
+                            </strong>{' '}
+                            {lang === 'hi'
+                                ? 'सनस्क्रीन लगाएं और टोपी पहनें।'
+                                : lang === 'mr'
+                                    ? 'सनस्क्रीन लावा आणि टोपी घाला.'
+                                    : 'Apply sunscreen and wear a hat.'
+                            }
+                        </div>
                     </div>
-                </div>
-            )}
+                )}
 
-            {/* Last Updated */}
-            <div className="text-xs text-blue-500 text-center mt-3">
-                {weather.cached && (lang === 'hi' ? 'कैश से लोड किया गया' : lang === 'mr' ? 'कॅशमधून लोड केले' : 'Cached data')} •
-                {lang === 'hi' ? ' हर 5 मिनट में अपडेट' : lang === 'mr' ? ' दर 5 मिनिटांनी अपडेट' : ' Updates every 5 min'}
+                {/* Heat Warning */}
+                {(weather.temperature >= 35 || weather.feelsLike >= 35) && (
+                    <div className="bg-orange-500/90 backdrop-blur-sm border border-white/30 rounded-xl p-3 flex items-start gap-3 mb-3 animate-pulse">
+                        <AlertTriangle className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-white">
+                            <strong>
+                                {lang === 'hi' ? '🔥 गर्मी चेतावनी!' : lang === 'mr' ? '🔥 उष्णता सतर्कता!' : '🔥 Heat Warning!'}
+                            </strong>{' '}
+                            {lang === 'hi'
+                                ? 'खूब पानी पिएं और बाहरी गतिविधियों को सीमित करें।'
+                                : lang === 'mr'
+                                    ? 'भरपूर पाणी प्या आणि बाहेरची कामे मर्यादित करा.'
+                                    : 'Stay hydrated and limit outdoor activities.'
+                            }
+                        </div>
+                    </div>
+                )}
+
+                {/* Pollution Warning */}
+                {weather.aqi >= 3 && (
+                    <div className={`${weather.aqi >= 4 ? 'bg-red-500/90' : 'bg-yellow-500/90'} backdrop-blur-sm border border-white/30 rounded-xl p-3 flex items-start gap-3 mb-3`}>
+                        <AlertTriangle className="w-5 h-5 text-white flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-white">
+                            <strong>
+                                {lang === 'hi' ? '😷 प्रदूषण चेतावनी!' : lang === 'mr' ? '😷 प्रदूषण सतर्कता!' : '😷 Pollution Alert!'}
+                            </strong>{' '}
+                            {lang === 'hi'
+                                ? 'बाहर जाते समय मास्क पहनें।'
+                                : lang === 'mr'
+                                    ? 'बाहेर जाताना मास्क घाला.'
+                                    : 'Wear a mask when outdoors.'
+                            }
+                        </div>
+                    </div>
+                )}
+
+                {/* Footer */}
+                <div className="text-center text-white/70 text-xs mt-4 flex items-center justify-center gap-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    {weather.cached && (lang === 'hi' ? 'कैश से लोड' : lang === 'mr' ? 'कॅशमधून' : 'Cached')} •
+                    {lang === 'hi' ? ' हर 5 मिनट में अपडेट' : lang === 'mr' ? ' दर 5 मिनिटांनी' : ' Updates every 5 min'}
+                </div>
             </div>
         </div>
     );

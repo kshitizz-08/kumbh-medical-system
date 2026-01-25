@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense, useCallback, memo } from 'react';
-import { UserPlus, Search, Heart, CheckCircle2, Home, Loader2, Copy, Check, X, BarChart3, ArrowLeft } from 'lucide-react';
+import { UserPlus, Search, Heart, CheckCircle2, Home, Loader2, Copy, Check, X, BarChart3, ArrowLeft, AlertTriangle } from 'lucide-react';
 import { Devotee, MedicalRecord, DevoteeWithRecord } from './lib/api';
 import { useI18n } from './i18n/i18n';
 
@@ -12,6 +12,7 @@ const ChatBot = lazy(() => import('./components/ChatBot'));
 const WeatherWidget = lazy(() => import('./components/WeatherWidget'));
 const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'));
 const LostFoundDashboard = lazy(() => import('./components/LostFoundDashboard'));
+const HighRiskDashboard = lazy(() => import('./components/HighRiskDashboard'));
 
 // Loading fallback component
 const ComponentLoader = memo(() => (
@@ -21,7 +22,7 @@ const ComponentLoader = memo(() => (
 ));
 ComponentLoader.displayName = 'ComponentLoader';
 
-type View = 'home' | 'register' | 'search' | 'analytics' | 'lost-found';
+type View = 'home' | 'register' | 'search' | 'analytics' | 'lost-found' | 'high-risk';
 type SelectedDevotee = Devotee & { medical_records: MedicalRecord | null };
 
 function App() {
@@ -143,6 +144,17 @@ function App() {
                   <Search className="w-4 h-4" aria-hidden="true" />
                   <span>{t('nav.lostFound')}</span>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setCurrentView('high-risk')}
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 border-l border-slate-200 transition-colors ${currentView === 'high-risk'
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-700 hover:bg-white'
+                    }`}
+                >
+                  <AlertTriangle className="w-4 h-4" aria-hidden="true" />
+                  <span>{t('nav.highRisk')}</span>
+                </button>
               </nav>
 
               <div className="flex items-center gap-2">
@@ -203,7 +215,7 @@ function App() {
                 {t('home.heroDesc')}
               </p>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
                 <button
                   onClick={() => setCurrentView('register')}
                   className="bg-gradient-to-r from-kumbh-saffron to-kumbh-marigold text-white p-8 rounded-xl hover:from-orange-600 hover:to-amber-500 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 border border-orange-300/80"
@@ -225,37 +237,45 @@ function App() {
                     {t('home.cta.search.desc')}
                   </p>
                 </button>
+
+                <button
+                  onClick={() => setCurrentView('high-risk')}
+                  className="bg-gradient-to-r from-red-600 to-rose-600 text-white p-8 rounded-xl hover:from-red-700 hover:to-rose-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 border border-red-400/70"
+                >
+                  <AlertTriangle className="w-12 h-12 mx-auto mb-3" />
+                  <h3 className="text-xl font-semibold mb-2">{t('home.cta.highRisk.title')}</h3>
+                  <p className="text-red-50 text-sm">
+                    {t('home.cta.highRisk.desc')}
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => setCurrentView('analytics')}
+                  className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-8 rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 border border-purple-400/70"
+                >
+                  <BarChart3 className="w-12 h-12 mx-auto mb-3" />
+                  <h3 className="text-xl font-semibold mb-2">{t('home.cta.analytics.title')}</h3>
+                  <p className="text-purple-50 text-sm">
+                    {t('home.cta.analytics.desc')}
+                  </p>
+                </button>
+
+                <button
+                  onClick={() => setCurrentView('lost-found')}
+                  className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white p-8 rounded-xl hover:from-teal-700 hover:to-emerald-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 border border-teal-400/70"
+                >
+                  <Search className="w-12 h-12 mx-auto mb-3" />
+                  <h3 className="text-xl font-semibold mb-2">{t('home.cta.lostFound.title')}</h3>
+                  <p className="text-teal-50 text-sm">
+                    {t('home.cta.lostFound.desc')}
+                  </p>
+                </button>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-gradient-to-br from-orange-50 to-amber-50/90 backdrop-blur border border-orange-300/50 rounded-2xl p-6 shadow-lg">
-                <h3 className="text-xl font-bold text-orange-900 mb-4">{t('home.designedFor.title')}</h3>
-                <ul className="space-y-3 text-base text-orange-800">
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                    <span>{t('home.designedFor.1')}</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                    <span>{t('home.designedFor.2')}</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                    <span>{t('home.designedFor.3')}</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                    <span>{t('home.designedFor.4')}</span>
-                  </li>
-                  <li className="flex items-center gap-3">
-                    <CheckCircle2 className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                    <span>{t('home.designedFor.5')}</span>
-                  </li>
-                </ul>
-              </div>
 
-              {/* Weather Widget */}
+            {/* Weather Widget - Full Width */}
+            <div className="max-w-5xl mx-auto">
               <Suspense fallback={<ComponentLoader />}>
                 <WeatherWidget />
               </Suspense>
@@ -373,6 +393,12 @@ function App() {
         {currentView === 'lost-found' && (
           <Suspense fallback={<ComponentLoader />}>
             <LostFoundDashboard />
+          </Suspense>
+        )}
+
+        {currentView === 'high-risk' && (
+          <Suspense fallback={<ComponentLoader />}>
+            <HighRiskDashboard onSelectDevotee={handleSelectDevotee} />
           </Suspense>
         )}
       </main>

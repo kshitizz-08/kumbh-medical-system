@@ -56,6 +56,57 @@ router.get('/stats', async (req, res) => {
         // Ideally this should be an array in schema, but working with what we have
         const medicalRecords = await MedicalRecord.find({}, 'chronic_conditions');
 
+        // Normalization map for multilingual condition names
+        const conditionNormalizer = {
+            // Hypertension variations
+            'hypertension': 'Hypertension',
+            'उच्च रक्तदाब': 'Hypertension',
+            'उच्च रक्तदाब (bp)': 'Hypertension',
+            'bp': 'Hypertension',
+            'high blood pressure': 'Hypertension',
+            
+            // Diabetes variations
+            'diabetes': 'Diabetes',
+            'मधुमेह': 'Diabetes',
+            'मधुमेह (diabetes)': 'Diabetes',
+            'sugar': 'Diabetes',
+            
+            // Heart Disease variations
+            'heart disease': 'Heart Disease',
+            'हृदय रोग': 'Heart Disease',
+            'हृदय रोग (heart disease)': 'Heart Disease',
+            'cardiac': 'Heart Disease',
+            
+            // Asthma variations
+            'asthma': 'Asthma',
+            'दमा': 'Asthma',
+            'दमा (asthma)': 'Asthma',
+            
+            // Kidney Disease variations
+            'kidney disease': 'Kidney Disease',
+            'kidney problem': 'Kidney Disease',
+            'गुर्दे की बीमारी': 'Kidney Disease',
+            
+            // Arthritis variations
+            'arthritis': 'Arthritis',
+            'गठिया': 'Arthritis',
+            
+            // Thyroid variations
+            'thyroid': 'Thyroid',
+            'थायराइड': 'Thyroid',
+            
+            // None variations
+            'none': 'None',
+            'काही नाही': 'None',
+            'कोई नहीं': 'None',
+            'no': 'None',
+        };
+
+        const normalizeCondition = (condition) => {
+            const lowerCondition = condition.toLowerCase().trim();
+            return conditionNormalizer[lowerCondition] || condition;
+        };
+
         const conditionStats = {};
         let highRiskMedicalCount = 0;
 
@@ -64,8 +115,11 @@ router.get('/stats', async (req, res) => {
                 highRiskMedicalCount++;
                 const conditions = record.chronic_conditions.split(',').map(c => c.trim());
                 conditions.forEach(condition => {
-                    if (condition) {
-                        conditionStats[condition] = (conditionStats[condition] || 0) + 1;
+                    if (condition && condition !== 'None') {
+                        const normalizedCondition = normalizeCondition(condition);
+                        if (normalizedCondition !== 'None') {
+                            conditionStats[normalizedCondition] = (conditionStats[normalizedCondition] || 0) + 1;
+                        }
                     }
                 });
             }

@@ -177,6 +177,28 @@ router.post('/search-by-face', async (req, res) => {
   }
 });
 
+// GET /api/devotees/:id - Get single devotee by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find devotee by ID
+    const devotee = await Devotee.findById(id).lean();
+
+    if (!devotee) {
+      return res.status(404).json({ message: 'Devotee not found' });
+    }
+
+    // Find associated medical record
+    const medicalRecord = await MedicalRecord.findOne({ devotee_id: id }).lean();
+
+    return res.json(formatDevotee(devotee, medicalRecord));
+  } catch (error) {
+    console.error('Failed to fetch devotee', error);
+    return res.status(500).json({ message: 'Failed to fetch devotee', details: error.message });
+  }
+});
+
 
 
 // PUT /api/devotees/:id - Update Devotee & Medical Record

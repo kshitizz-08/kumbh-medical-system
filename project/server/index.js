@@ -9,6 +9,7 @@ import weatherRoutes from './routes/weather.js';
 import { analyticsRouter } from './routes/analytics.js';
 import { lostFoundRouter } from './routes/lostFound.js';
 import faceRoutes from './routes/face.js';
+import { highRiskRouter } from './routes/highRisk.js';
 
 
 dotenv.config();
@@ -37,6 +38,7 @@ app.use('/api/weather', weatherRoutes);
 app.use('/api/analytics', analyticsRouter);
 app.use('/api/lost-found', lostFoundRouter);
 app.use('/api/face', faceRoutes);
+app.use('/api/high-risk', highRiskRouter);
 
 
 // SERVE STATIC FILES (This fixes "Cannot GET /")
