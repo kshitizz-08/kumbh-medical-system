@@ -157,45 +157,52 @@ function App() {
                 </button>
               </nav>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <div className="hidden sm:flex flex-col items-end mr-1">
                   <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                     {t('lang.label')}
                   </span>
-                  <span className="text-[11px] text-slate-500">
-                    {t('lang.current', { code: lang.toUpperCase() })}
-                  </span>
                 </div>
-                <div className="inline-flex rounded-lg border border-slate-200 bg-white shadow-sm overflow-hidden" role="group" aria-label={t('lang.label')}>
+                <div className="inline-flex rounded-xl border-2 border-orange-200 bg-white shadow-md overflow-hidden" role="group" aria-label={t('lang.label')}>
                   <button
                     type="button"
                     onClick={() => setLang('en')}
-                    className={`px-3 py-2 text-sm font-semibold transition-colors ${lang === 'en' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
-                      }`}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-bold transition-all ${lang === 'en'
+                      ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-inner'
+                      : 'text-slate-600 hover:bg-orange-50 hover:text-orange-700'
+                    }`}
                     aria-pressed={lang === 'en'}
+                    title="English"
                   >
-                    {t('lang.en')}
+                    🇬🇧 <span>EN</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setLang('hi')}
-                    className={`px-3 py-2 text-sm font-semibold transition-colors ${lang === 'hi' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
-                      }`}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-bold transition-all border-l border-orange-100 ${lang === 'hi'
+                      ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-inner'
+                      : 'text-slate-600 hover:bg-orange-50 hover:text-orange-700'
+                    }`}
                     aria-pressed={lang === 'hi'}
+                    title="हिंदी"
                   >
-                    {t('lang.hi')}
+                    🇮🇳 <span>हि</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setLang('mr')}
-                    className={`px-3 py-2 text-sm font-semibold transition-colors ${lang === 'mr' ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-50'
-                      }`}
+                    className={`flex items-center gap-1.5 px-3 py-2 text-sm font-bold transition-all border-l border-orange-100 ${lang === 'mr'
+                      ? 'bg-gradient-to-b from-orange-500 to-orange-600 text-white shadow-inner'
+                      : 'text-slate-600 hover:bg-orange-50 hover:text-orange-700'
+                    }`}
                     aria-pressed={lang === 'mr'}
+                    title="मराठी"
                   >
-                    {t('lang.mr')}
+                    🏵️ <span>म</span>
                   </button>
                 </div>
               </div>
+
             </div>
           </div>
         </div>

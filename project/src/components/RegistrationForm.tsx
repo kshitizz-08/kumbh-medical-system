@@ -1,9 +1,12 @@
 import { useState } from 'react';
-import { Camera, Save, User, AlertCircle, Scissors, Activity, Droplet, Stethoscope, Pill, Users, Phone, UserCircle } from 'lucide-react';
+import { Camera, Save, User, AlertCircle, Scissors, Activity, Droplet, Stethoscope, Pill, Users, Phone, UserCircle, Bot } from 'lucide-react';
 import { registerDevotee, updateDevotee, CreateDevoteePayload, DevoteeWithRecord } from '../lib/api';
 import { useI18n } from '../i18n/i18n';
 import SelfieCapture from './SelfieCapture';
 import VoiceInput from './VoiceInput';
+import VoiceAutoFillButton from './VoiceAutoFillButton';
+import ConversationalFill from './ConversationalFill';
+import { AutoFillResult } from '../lib/geminiAutoFill';
 import { parseSpokenPhoneNumber } from '../utils/textUtils';
 
 type RegistrationFormProps = {
@@ -17,6 +20,7 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
     const { t, lang } = useI18n();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [showSelfieCapture, setShowSelfieCapture] = useState(false);
+    const [showConversationalFill, setShowConversationalFill] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [otherCondition, setOtherCondition] = useState('');
     const [showOtherCondition, setShowOtherCondition] = useState(false);
@@ -70,7 +74,155 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
         };
     });
 
-    // Handle voice updates
+    // ── Helpers: map Gemini's English terms → exact translated labels the checkboxes use ──
+
+    /** Maps a raw English condition string (from Gemini) to the translated label used by checkboxes */
+    const mapConditionsToTranslated = (raw: string): string => {
+        const conditionKeyMap: Array<{ patterns: string[]; key: string }> = [
+            { patterns: ['diabet', 'sugar', 'madhumeh', 'मधुमेह'], key: 'condition.diabetes' },
+            { patterns: ['hypertension', 'high bp', 'high blood pressure', 'blood pressure', 'raktadab', 'उच्च रक्तदाब', 'उच्च रक्तचाप'], key: 'condition.hypertension' },
+            { patterns: ['arthritis', 'joint pain', 'sandhe', 'sande', 'सांधेदुखी', 'गठिया'], key: 'condition.arthritis' },
+            { patterns: ['asthma', 'copd', 'dama', 'dama', 'दमा', 'breathing problem', 'श्वास'], key: 'condition.asthma' },
+            { patterns: ['heart', 'cardiac', 'hriday', 'हृदय', 'हृदय रोग', 'दिल'], key: 'condition.heartDisease' },
+            { patterns: ['thyroid', 'थायरॉईड', 'थायरॉइड'], key: 'condition.thyroid' },
+            { patterns: ['kidney', 'mutrapind', 'mootrapind', 'मूत्रपिंड', 'किडनी'], key: 'condition.kidneyDisease' },
+            { patterns: ['liver', 'yakrut', 'यकृत', 'लीवर'], key: 'condition.liverDisease' },
+            { patterns: ['cancer', 'karkrog', 'कर्करोग', 'कैंसर'], key: 'condition.cancer' },
+            { patterns: ['stroke', 'paralysis', 'ardhangyavay', 'अर्धांगवायू', 'लकवा'], key: 'condition.stroke' },
+            { patterns: ['depression', 'anxiety', 'mental', 'avsad', 'अवसाद', 'चिंता'], key: 'condition.depression' },
+            { patterns: ['none', 'no condition', 'healthy', 'kahi nahi', 'कोई नहीं', 'काही नाही'], key: 'condition.none' },
+        ];
+
+        const rawList = raw.split(/,|;|\n/).map(s => s.trim().toLowerCase()).filter(Boolean);
+        const matched: string[] = [];
+        const seenKeys = new Set<string>();
+
+        for (const item of rawList) {
+            let foundAny = false;
+            for (const { patterns, key } of conditionKeyMap) {
+                if (patterns.some(p => item.includes(p))) {
+                    const label = t(key);
+                    if (!seenKeys.has(key)) {
+                        seenKeys.add(key);
+                        matched.push(label);
+                    }
+                    foundAny = true;
+                    // Do not break! A sentence might contain multiple conditions
+                }
+            }
+            if (!foundAny && item.length > 1 && !/none|no condition|healthy|kahi nahi|कोई नहीं|काही नाही/i.test(item)) {
+                // Keep unknown conditions as custom text
+                matched.push(item.charAt(0).toUpperCase() + item.slice(1));
+            }
+        }
+        return matched.join(', ');
+    };
+
+    /** Maps a raw English allergy string (from Gemini) to the translated label used by checkboxes */
+    const mapAllergiesToTranslated = (raw: string): string => {
+        const allergyKeyMap: Array<{ patterns: string[]; key: string }> = [
+            { patterns: ['dust', 'dhul', 'धूळ', 'धूल'], key: 'allergy.dust' },
+            { patterns: ['pollen', 'parag', 'परागकण', 'पराग'], key: 'allergy.pollen' },
+            { patterns: ['peanut', 'shengdana', 'mungfali', 'शेंगदाणे', 'मूंगफली'], key: 'allergy.peanuts' },
+            { patterns: ['dairy', 'milk', 'doodh', 'dudh', 'दूध'], key: 'allergy.dairy' },
+            { patterns: ['shellfish', 'prawn', 'crab', 'shrimp'], key: 'allergy.shellfish' },
+            { patterns: ['tree nut', 'treenut', 'cashew', 'almond', 'walnut', 'kaju', 'badam', 'काजू', 'बदाम'], key: 'allergy.treeNuts' },
+            { patterns: ['egg', 'anda', 'अंडे', 'अंडी'], key: 'allergy.eggs' },
+            { patterns: ['wheat', 'gluten', 'gehun', 'गहू', 'गेहूं'], key: 'allergy.wheat' },
+            { patterns: ['soy', 'soya'], key: 'allergy.soy' },
+            { patterns: ['animal', 'pet', 'cat', 'dog', 'dander'], key: 'allergy.animalDander' },
+            { patterns: ['mold', 'mould', 'fungus', 'burshi', 'बुरशी', 'फफूंद'], key: 'allergy.mold' },
+            { patterns: ['insect', 'bee', 'sting', 'bite', 'kida', 'कीड', 'कीड़े'], key: 'allergy.insectStings' },
+            { patterns: ['medicine', 'medication', 'drug', 'dawa', 'औषध', 'दवा'], key: 'allergy.medications' },
+            { patterns: ['none', 'no allergy', 'kahi nahi', 'काही नाही', 'कोई नहीं'], key: 'allergy.none' },
+        ];
+
+        const rawList = raw.split(/,|;|\n/).map(s => s.trim().toLowerCase()).filter(Boolean);
+        const matched: string[] = [];
+        const seenKeys = new Set<string>();
+
+        for (const item of rawList) {
+            let foundAny = false;
+            for (const { patterns, key } of allergyKeyMap) {
+                if (patterns.some(p => item.includes(p))) {
+                    const label = t(key);
+                    if (!seenKeys.has(key)) {
+                        seenKeys.add(key);
+                        matched.push(label);
+                    }
+                    foundAny = true;
+                    // Do not break!
+                }
+            }
+            if (!foundAny && item.length > 1 && !/none|no allergy|kahi nahi|काही नाही|कोई नहीं/i.test(item)) {
+                matched.push(item.charAt(0).toUpperCase() + item.slice(1));
+            }
+        }
+        return matched.join(', ');
+    };
+
+    // Handle AI voice auto-fill: merges all extracted fields into the form
+    const handleAutoFill = (data: AutoFillResult) => {
+        console.log('[handleAutoFill] Received data:', data);
+        setFormData(prev => {
+            const updated = { ...prev };
+
+            if (data.full_name)                updated.full_name = data.full_name;
+            if (data.age)                      updated.age = data.age;
+            if (data.gender)                   updated.gender = data.gender;
+            if (data.phone)                    updated.phone = data.phone;
+            if (data.emergency_contact_name)   updated.emergency_contact_name = data.emergency_contact_name;
+            if (data.emergency_contact_phone)  updated.emergency_contact_phone = data.emergency_contact_phone;
+            if (data.blood_group)              updated.blood_group = data.blood_group;
+            if (data.special_notes)            updated.special_notes = data.special_notes;
+            if (data.height_cm)                updated.height_cm = data.height_cm;
+            if (data.weight_kg)                updated.weight_kg = data.weight_kg;
+
+            // Conditions & Allergies: map English → translated labels so checkboxes tick
+            if (data.chronic_conditions) {
+                const translated = mapConditionsToTranslated(data.chronic_conditions);
+                if (translated) updated.chronic_conditions = translated;
+            }
+            if (data.allergies) {
+                const translated = mapAllergiesToTranslated(data.allergies);
+                if (translated) updated.allergies = translated;
+            }
+
+            // Medications & Surgeries: merge with existing list, avoid duplicates
+            if (data.current_medications) {
+                const existing = prev.current_medications
+                    ? prev.current_medications.split(', ').filter(Boolean)
+                    : [];
+                const incoming = data.current_medications.split(/,|;/).map(s => s.trim()).filter(Boolean);
+                const merged = [...existing];
+                for (const med of incoming) {
+                    if (!merged.some(m => m.toLowerCase() === med.toLowerCase())) {
+                        merged.push(med.charAt(0).toUpperCase() + med.slice(1));
+                    }
+                }
+                updated.current_medications = merged.join(', ');
+            }
+            if (data.past_surgeries) {
+                const existing = prev.past_surgeries
+                    ? prev.past_surgeries.split(', ').filter(Boolean)
+                    : [];
+                const incoming = data.past_surgeries.split(/,|;/).map(s => s.trim()).filter(Boolean);
+                const merged = [...existing];
+                for (const surg of incoming) {
+                    if (!merged.some(m => m.toLowerCase() === surg.toLowerCase())) {
+                        merged.push(surg.charAt(0).toUpperCase() + surg.slice(1));
+                    }
+                }
+                updated.past_surgeries = merged.join(', ');
+            }
+
+            console.log('[handleAutoFill] Updated formData:', updated);
+            return updated;
+        });
+    };
+
+
+    // Handle voice updates (per-field)
     const handleVoiceInput = (field: keyof CreateDevoteePayload, text: string) => {
         setFormData(prev => {
             let newValue = text;
@@ -172,6 +324,52 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
                         onClose={() => setShowSelfieCapture(false)}
                     />
                 )}
+
+                {showConversationalFill && (
+                    <ConversationalFill
+                        onAutoFill={handleAutoFill}
+                        onClose={() => setShowConversationalFill(false)}
+                        language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'}
+                    />
+                )}
+
+                {/* ── AI Voice Auto-Fill Panel ── */}
+                <div className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 p-5 space-y-4">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="p-2 bg-violet-100 rounded-lg">
+                            <Bot className="w-5 h-5 text-violet-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-violet-800 text-base">{t('voiceAI.panelTitle')}</h3>
+                            <p className="text-xs text-violet-500">{t('voiceAI.panelDesc')}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Option 1: One-Shot Dictation */}
+                        <div className="flex flex-col gap-2">
+                            <VoiceAutoFillButton
+                                onAutoFill={handleAutoFill}
+                                language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'}
+                            />
+                        </div>
+
+                        {/* Option 2: Step-by-Step AI Interview (ChatGPT style) */}
+                        <div className="flex flex-col gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowConversationalFill(true)}
+                                className="w-full h-full flex flex-col items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-900/30 transition-all duration-200 transform hover:-translate-y-0.5 active:scale-98"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Bot className="w-5 h-5" />
+                                    <span>Start AI Interview</span>
+                                </div>
+                                <span className="text-xs text-blue-200 font-normal">Step-by-step chat with AI</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
                 {/* Photo Section */}
                 <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-orange-300 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50">

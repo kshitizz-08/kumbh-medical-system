@@ -152,8 +152,6 @@ const DICT: Record<Language, Dictionary> = {
     'medical.disclaimerText': 'These recommendations are general guidelines based on your reported conditions. Always consult your healthcare provider for personalized medical advice. In case of emergency, call your local emergency services immediately.',
 
     // Search
-    'search.pageTitle': 'Search Yatri Medical Records',
-    'search.pageDesc': 'Find pilgrim information quickly during a medical emergency',
     'search.type.name': 'Name',
     'search.type.phone': 'Phone',
     'search.type.registration': 'Registration No.',
@@ -311,6 +309,24 @@ const DICT: Record<Language, Dictionary> = {
     'common.stopVoice': 'Stop listening',
     'common.listening': 'Listening...',
 
+    // Voice Auto-Fill Panel
+    'voiceAI.panelTitle': '🤖 AI Voice Auto-Fill',
+    'voiceAI.panelDesc': "Speak the pilgrim's details in one sentence — AI fills the form instantly",
+    'voiceAI.btnIdle': '🎤 Speak to Auto-Fill All Fields',
+    'voiceAI.btnListening': 'Stop & Process…',
+    'voiceAI.btnProcessing': 'AI Processing…',
+    'voiceAI.btnSuccess': 'Done!',
+    'voiceAI.btnError': 'Try Again',
+    'voiceAI.hint': '💬 Say e.g. "My name is Ramesh, 55 years old, male, phone 9876543210, blood group O positive, diabetic"',
+    'voiceAI.noSpeech': 'No speech detected. Please try again.',
+    'voiceAI.processing': 'Processing: ',
+    'voiceAI.filledFields': ({ count }: any) => `✓ Filled ${count} field${count !== 1 ? 's' : ''} automatically!`,
+    'voiceAI.noExtract': 'Could not extract any information. Please speak clearly and include details.',
+    'voiceAI.aiFail': 'AI processing failed. Please try again.',
+    'voiceAI.micError': 'Microphone error: ',
+    'voiceAI.noSupport': 'Voice recognition not supported in this browser.',
+
+
     // Selfie capture
     'selfie.loadingModels': 'Loading face detection models...',
     'selfie.failModels':
@@ -455,8 +471,6 @@ const DICT: Record<Language, Dictionary> = {
     'medical.disclaimer': 'चिकित्सा अस्वीकरण:',
     'medical.disclaimerText': 'ये सिफारिशें आपकी रिपोर्ट की गई स्थितियों के आधार पर सामान्य दिशानिर्देश हैं। व्यक्तिगत चिकित्सा सलाह के लिए हमेशा अपने स्वास्थ्य सेवा प्रदाता से परामर्श करें। आपात स्थिति में तुरंत अपनी स्थानीय आपातकालीन सेवाओं को कॉल करें।',
 
-    'search.pageTitle': 'यात्री मेडिकल रिकॉर्ड खोजें',
-    'search.pageDesc': 'आपातकाल में यात्री की जानकारी जल्दी खोजें',
     'search.type.name': 'नाम',
     'search.type.phone': 'फोन',
     'search.type.registration': 'रजिस्ट्रेशन नं.',
@@ -610,6 +624,23 @@ const DICT: Record<Language, Dictionary> = {
     'common.stopVoice': 'सुनना बंद करें',
     'common.listening': 'सुन रहा है...',
 
+    // Voice Auto-Fill Panel - Hindi
+    'voiceAI.panelTitle': '🤖 AI वॉयस ऑटो-फिल',
+    'voiceAI.panelDesc': 'यात्री की जानकारी एक वाक्य में बोलें — AI तुरंत फॉर्म भर देगा',
+    'voiceAI.btnIdle': '🎤 बोलकर फॉर्म भरें',
+    'voiceAI.btnListening': 'रोकें और प्रोसेस करें…',
+    'voiceAI.btnProcessing': 'AI प्रोसेस कर रहा है…',
+    'voiceAI.btnSuccess': 'हो गया!',
+    'voiceAI.btnError': 'फिर कोशिश करें',
+    'voiceAI.hint': '💬 उदाहरण: "मेरा नाम रमेश है, 55 साल, पुरुष, फोन 9876543210, O पॉजिटिव ब्लड, मधुमेह है"',
+    'voiceAI.noSpeech': 'कोई आवाज़ नहीं मिली। कृपया फिर से बोलें।',
+    'voiceAI.processing': 'प्रोसेस हो रहा है: ',
+    'voiceAI.filledFields': ({ count }: any) => `✓ ${count} फ़ील्ड स्वचालित रूप से भरे गए!`,
+    'voiceAI.noExtract': 'जानकारी नहीं निकाल पाए। स्पष्ट रूप से बोलें और पूरी जानकारी दें।',
+    'voiceAI.aiFail': 'AI प्रोसेसिंग विफल। कृपया फिर कोशिश करें।',
+    'voiceAI.micError': 'माइक्रोफोन त्रुटि: ',
+    'voiceAI.noSupport': 'इस ब्राउज़र में वॉयस पहचान समर्थित नहीं है।',
+
     'selfie.loadingModels': 'फेस मॉडल लोड हो रहे हैं...',
     'selfie.failModels': 'फेस मॉडल लोड नहीं हो पाए। इंटरनेट जांचें और पेज रिफ्रेश करें।',
     'selfie.failCamera': 'कैमरा नहीं खुल पाया। कृपया कैमरा अनुमति दें।',
@@ -747,8 +778,6 @@ const DICT: Record<Language, Dictionary> = {
 
 
 
-    'search.pageTitle': 'यात्री वैद्यकीय नोंदी शोधा',
-    'search.pageDesc': 'आपत्कालात यात्रेकरूची माहिती पटकन शोधा',
     'search.type.name': 'नाव',
     'search.type.phone': 'फोन',
     'search.type.registration': 'नोंदणी क्र.',
@@ -912,6 +941,23 @@ const DICT: Record<Language, Dictionary> = {
     'selfie.bodyDetected': 'शरीर ओळखले! फोटो घेण्यासाठी तयार',
     'selfie.bodyNotVisible': 'कृपया आपल्या शरीराचा अधिक भाग दाखवा',
     'selfie.mouthOpen': 'कृपया तोंड बंद ठेवा.',
+
+    // Voice Auto-Fill Panel - Marathi
+    'voiceAI.panelTitle': '🤖 AI व्हॉइस ऑटो-फिल',
+    'voiceAI.panelDesc': 'यात्रेकरूची माहिती एका वाक्यात बोला — AI लगेच फॉर्म भरेल',
+    'voiceAI.btnIdle': '🎤 बोलून फॉर्म भरा',
+    'voiceAI.btnListening': 'थांबा आणि प्रक्रिया करा…',
+    'voiceAI.btnProcessing': 'AI प्रक्रिया करत आहे…',
+    'voiceAI.btnSuccess': 'झाले!',
+    'voiceAI.btnError': 'पुन्हा प्रयत्न करा',
+    'voiceAI.hint': '💬 उदा: "माझे नाव रमेश आहे, वय 55, पुरुष, फोन 9876543210, O पॉझिटिव्ह रक्तगट, मधुमेह आहे"',
+    'voiceAI.noSpeech': 'बोलणे आढळले नाही. कृपया पुन्हा प्रयत्न करा.',
+    'voiceAI.processing': 'प्रक्रिया होत आहे: ',
+    'voiceAI.filledFields': ({ count }: any) => `✓ ${count} फील्ड आपोआप भरले!`,
+    'voiceAI.noExtract': 'माहिती काढता आली नाही. स्पष्ट बोला आणि संपूर्ण माहिती द्या.',
+    'voiceAI.aiFail': 'AI प्रक्रिया अयशस्वी. कृपया पुन्हा प्रयत्न करा.',
+    'voiceAI.micError': 'मायक्रोफोन त्रुटी: ',
+    'voiceAI.noSupport': 'या ब्राउझरमध्ये व्हॉइस ओळख समर्थित नाही.',
   },
 };
 
