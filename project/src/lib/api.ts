@@ -124,6 +124,8 @@ export type MedicalIncident = {
   follow_up_required: boolean;
   follow_up_notes: string;
   created_at: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export type DevoteeWithRecord = Devotee & { medical_records: MedicalRecord | null };
@@ -160,6 +162,8 @@ export type CreateIncidentPayload = {
   medical_center: string;
   follow_up_required: boolean;
   follow_up_notes: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export function registerDevotee(payload: CreateDevoteePayload) {
@@ -200,6 +204,10 @@ export function createIncident(payload: CreateIncidentPayload) {
 export function getIncidents(devoteeId: string) {
   const params = new URLSearchParams({ devoteeId });
   return request<MedicalIncident[]>(`/incidents?${params.toString()}`);
+}
+
+export function getAllIncidents() {
+  return request<MedicalIncident[]>('/incidents/all');
 }
 
 // Lost & Found

@@ -27,6 +27,7 @@ interface Step {
   hint: Record<Language, string>;
   extract: (text: string) => any;
   optional?: boolean;
+  inputType?: 'text' | 'number' | 'tel';
 }
 
 const STEPS: Step[] = [
@@ -56,6 +57,7 @@ const STEPS: Step[] = [
       const m = text.match(/\b(\d{1,3})\b/);
       return m ? parseInt(m[1]) : undefined;
     },
+    inputType: 'number',
   },
   {
     field: 'gender',
@@ -67,9 +69,9 @@ const STEPS: Step[] = [
     hint: { en: '"Male"', hi: '"पुरुष"', mr: '"पुरुष"' },
     extract: (text) => {
       const tl = text.toLowerCase();
-      if (/\b(female|woman|lady|mahila|aurat|stri|स्त्री|महिला)\b/i.test(tl)) return 'Female';
-      if (/\b(male|man|purush|पुरुष|gents|boys?)\b/i.test(tl)) return 'Male';
-      if (/\b(other|anya|अन्य|इतर)\b/i.test(tl)) return 'Other';
+      if (/\b(female|woman|lady|mahila|aurat|stri)\b|स्त्री|महिला/i.test(tl)) return 'Female';
+      if (/\b(male|man|purush|gents|boys?)\b|पुरुष/i.test(tl)) return 'Male';
+      if (/\b(other|anya)\b|अन्य|इतर/i.test(tl)) return 'Other';
       return undefined;
     },
   },
@@ -113,6 +115,7 @@ const STEPS: Step[] = [
       const digits = text.replace(/\D/g, '');
       return digits.length >= 7 ? digits.slice(0, 10) : undefined;
     },
+    inputType: 'tel',
   },
   {
     field: 'blood_group',
@@ -211,6 +214,7 @@ const STEPS: Step[] = [
       return digits.length >= 7 ? digits.slice(0, 10) : undefined;
     },
     optional: true,
+    inputType: 'tel',
   },
   {
     field: 'special_notes',
@@ -263,6 +267,7 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
   const [interimText, setInterimText] = useState('');
   const [isTypingAI, setIsTypingAI] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [textInput, setTextInput] = useState('');
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const finalTranscriptRef = useRef('');
@@ -406,11 +411,11 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
     if (!step) return;
 
     const extracted = step.extract(text);
-    const isNone = /\b(none|no|koi nahi|kahi nahi|नहीं|नाही|nahin|nahi)\b/i.test(text);
+    const isNone = /\b(none|no|koi nahi|kahi nahi|nahin|nahi)\b|नहीं|नाही/i.test(text);
 
     addUserMessage(text, step.field);
 
-    if (extracted !== undefined && extracted !== '' && !isNone) {
+    if (extracted !== undefined && extracted !== '') {
       // Fill the form field
       onAutoFill({ [step.field]: extracted } as AutoFillResult);
 
@@ -423,15 +428,25 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
       setStepIndex(next);
       askStep(next);
       
-    } else {
-      // No/None — skip
+    } else if (isNone && step.optional) {
+      // Explicitly skipped an optional field
       const skipMsg = SKIP_MESSAGES[lang];
       addAIMessage(skipMsg);
       const next = currentStepIndex + 1;
       setStepIndex(next);
       askStep(next);
+      
+    } else {
+      // Regex failed to parse (e.g. didn't hear a number), or tried to skip a required field
+      const errorMsg: Record<Language, string> = {
+        en: "Sorry, I didn't catch that. Please provide a valid answer.",
+        hi: "माफ़ करें, मैं समझ नहीं पाया। कृपया सही उत्तर दें।",
+        mr: "क्षमस्व, मला समजले नाही. कृपया योग्य उत्तर द्या."
+      };
+      addAIMessage(errorMsg[lang]);
+      speak(errorMsg[lang], () => setTimeout(startListening, 50));
     }
-  }, [stepIndex, lang, addAIMessage, addUserMessage, onAutoFill, askStep]);
+  }, [stepIndex, lang, addAIMessage, addUserMessage, onAutoFill, askStep, speak, startListening]);
 
   const handleSkip = () => {
     if (isListening) stopListening();
@@ -440,6 +455,15 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
     const next = stepIndexRef.current + 1;
     setStepIndex(next);
     askStep(next);
+  };
+
+  const handleTextSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!textInput.trim()) return;
+    if (isListening) stopListening();
+    
+    handleAnswer(textInput.trim());
+    setTextInput('');
   };
 
   const progress = isDone ? 100 : Math.round((stepIndex / STEPS.length) * 100);
@@ -586,7 +610,7 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
               <button
                 type="button"
                 onClick={isListening ? stopListening : startListening}
-                className={`flex-1 flex items-center justify-center gap-2.5 py-3 rounded-xl font-bold text-sm transition-all ${
+                className={`flex-shrink-0 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
                   isListening
                     ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
                     : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg shadow-purple-900/50'
@@ -595,7 +619,6 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
                 {isListening ? (
                   <>
                     <MicOff className="w-5 h-5" />
-                    <span>Tap to Stop</span>
                     <span className="flex gap-0.5 items-end h-4">
                       {[40, 80, 55, 95, 65].map((h, i) => (
                         <span key={i} className="w-1 bg-white rounded-full animate-bounce"
@@ -604,13 +627,28 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
                     </span>
                   </>
                 ) : (
-                  <>
-                    <Mic className="w-5 h-5" />
-                    <span>🎤 Speak Answer</span>
-                  </>
+                  <Mic className="w-5 h-5" />
                 )}
               </button>
             </div>
+            
+            {/* Text Input Row */}
+            <form onSubmit={handleTextSubmit} className="flex gap-2">
+              <input
+                type={currentStep?.inputType || 'text'}
+                value={textInput}
+                onChange={e => setTextInput(e.target.value)}
+                placeholder={currentStep?.inputType === 'number' ? 'Type number...' : 'Type answer...'}
+                className="flex-1 bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-sm text-white placeholder-purple-300/50 focus:outline-none focus:border-purple-400 focus:ring-1 focus:ring-purple-400"
+              />
+              <button
+                type="submit"
+                disabled={!textInput.trim()}
+                className="bg-purple-600/80 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-3 rounded-xl transition-colors shadow-lg"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </form>
           </div>
         ) : (
           <div className="flex-shrink-0 border-t border-white/10 px-4 py-3">

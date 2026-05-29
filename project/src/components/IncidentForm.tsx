@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { createIncident } from '../lib/api';
-import { X, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, AlertTriangle, Loader2, MapPin } from 'lucide-react';
 import { useI18n } from '../i18n/i18n';
+import { useEffect } from 'react';
 
 type IncidentFormProps = {
   devoteeId: string;
@@ -36,6 +37,28 @@ export default function IncidentForm({ devoteeId, devoteeName, onClose, onSucces
     follow_up_required: false,
     follow_up_notes: '',
   });
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          });
+        },
+        (error) => {
+          console.warn('Geolocation error:', error);
+          setLocationError('Could not fetch location automatically.');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    } else {
+      setLocationError('Geolocation not supported by browser.');
+    }
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,6 +76,7 @@ export default function IncidentForm({ devoteeId, devoteeName, onClose, onSucces
         medical_center: formData.medical_center,
         follow_up_required: formData.follow_up_required,
         follow_up_notes: formData.follow_up_notes,
+        ...(location && { latitude: location.lat, longitude: location.lng }),
       });
 
       onSuccess();
@@ -88,6 +112,14 @@ export default function IncidentForm({ devoteeId, devoteeName, onClose, onSucces
           >
             <X className="w-6 h-6 text-gray-600" aria-hidden="true" />
           </button>
+        </div>
+        
+        {/* Location Status Bar */}
+        <div className={`px-6 py-2 text-xs flex items-center gap-2 ${location ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+          <MapPin className="w-3.5 h-3.5" />
+          {location 
+            ? `Location attached: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`
+            : locationError || "Acquiring GPS location..."}
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">

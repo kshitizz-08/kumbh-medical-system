@@ -58,8 +58,6 @@ router.post('/report', async (req, res) => {
 router.post('/match', async (req, res) => {
     try {
         const { face_descriptor, status_filter } = req.body;
-        // If we are reporting a 'found' person, we want to look for 'missing' people (status_filter='missing')
-        // If we are looking for a 'missing' person, we might check 'found' people (status_filter='found')
 
         if (!face_descriptor || face_descriptor.length !== 128) {
             return res.status(400).json({ error: 'Valid face descriptor required' });
@@ -68,7 +66,7 @@ router.post('/match', async (req, res) => {
         const targetDescriptor = Object.values(face_descriptor);
         const threshold = 0.6; // face-api.js default threshold for 128D vectors
 
-        // Fetch candidates (optimize by date/location in prod, but fetch all for now)
+        // Fetch candidates
         const query = status_filter ? { status: status_filter } : { status: { $ne: 'reunited' } };
         const candidates = await LostPerson.find(query);
 

@@ -4,7 +4,7 @@ import { registerDevotee, updateDevotee, CreateDevoteePayload, DevoteeWithRecord
 import { useI18n } from '../i18n/i18n';
 import SelfieCapture from './SelfieCapture';
 import VoiceInput from './VoiceInput';
-import VoiceAutoFillButton from './VoiceAutoFillButton';
+
 import ConversationalFill from './ConversationalFill';
 import { AutoFillResult } from '../lib/geminiAutoFill';
 import { parseSpokenPhoneNumber } from '../utils/textUtils';
@@ -178,14 +178,24 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
             if (data.height_cm)                updated.height_cm = data.height_cm;
             if (data.weight_kg)                updated.weight_kg = data.weight_kg;
 
-            // Conditions & Allergies: map English → translated labels so checkboxes tick
+            // Conditions & Allergies: map English → translated labels so checkboxes tick, and MERGE them
             if (data.chronic_conditions) {
                 const translated = mapConditionsToTranslated(data.chronic_conditions);
-                if (translated) updated.chronic_conditions = translated;
+                if (translated) {
+                    const existing = prev.chronic_conditions ? prev.chronic_conditions.split(', ').filter(Boolean) : [];
+                    const incoming = translated.split(', ').filter(Boolean);
+                    const merged = Array.from(new Set([...existing, ...incoming]));
+                    updated.chronic_conditions = merged.join(', ');
+                }
             }
             if (data.allergies) {
                 const translated = mapAllergiesToTranslated(data.allergies);
-                if (translated) updated.allergies = translated;
+                if (translated) {
+                    const existing = prev.allergies ? prev.allergies.split(', ').filter(Boolean) : [];
+                    const incoming = translated.split(', ').filter(Boolean);
+                    const merged = Array.from(new Set([...existing, ...incoming]));
+                    updated.allergies = merged.join(', ');
+                }
             }
 
             // Medications & Surgeries: merge with existing list, avoid duplicates
@@ -333,44 +343,6 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
                     />
                 )}
 
-                {/* ── AI Voice Auto-Fill Panel ── */}
-                <div className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 p-5 space-y-4">
-                    <div className="flex items-center gap-2 mb-1">
-                        <div className="p-2 bg-violet-100 rounded-lg">
-                            <Bot className="w-5 h-5 text-violet-600" />
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-violet-800 text-base">{t('voiceAI.panelTitle')}</h3>
-                            <p className="text-xs text-violet-500">{t('voiceAI.panelDesc')}</p>
-                        </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {/* Option 1: One-Shot Dictation */}
-                        <div className="flex flex-col gap-2">
-                            <VoiceAutoFillButton
-                                onAutoFill={handleAutoFill}
-                                language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'}
-                            />
-                        </div>
-
-                        {/* Option 2: Step-by-Step AI Interview (ChatGPT style) */}
-                        <div className="flex flex-col gap-2">
-                            <button
-                                type="button"
-                                onClick={() => setShowConversationalFill(true)}
-                                className="w-full h-full flex flex-col items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-900/30 transition-all duration-200 transform hover:-translate-y-0.5 active:scale-98"
-                            >
-                                <div className="flex items-center gap-2">
-                                    <Bot className="w-5 h-5" />
-                                    <span>Start AI Interview</span>
-                                </div>
-                                <span className="text-xs text-blue-200 font-normal">Step-by-step chat with AI</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
                 {/* Photo Section */}
                 <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-orange-300 rounded-xl bg-gradient-to-br from-orange-50 to-amber-50">
                     {formData.photo_url ? (
@@ -417,6 +389,36 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
                             </div>
                         )
                     )}
+                </div>
+
+                {/* ── AI Voice Auto-Fill Panel ── */}
+                <div className="rounded-2xl border-2 border-violet-200 bg-gradient-to-br from-violet-50 to-purple-50 p-5 space-y-4">
+                    <div className="flex items-center gap-2 mb-1">
+                        <div className="p-2 bg-violet-100 rounded-lg">
+                            <Bot className="w-5 h-5 text-violet-600" />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-violet-800 text-base">{t('voiceAI.panelTitle')}</h3>
+                            <p className="text-xs text-violet-500">{t('voiceAI.panelDesc')}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-4">
+                        {/* Option 2: Step-by-Step AI Interview (ChatGPT style) */}
+                        <div className="flex flex-col gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setShowConversationalFill(true)}
+                                className="w-full h-full flex flex-col items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-bold text-base bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg shadow-blue-900/30 transition-all duration-200 transform hover:-translate-y-0.5 active:scale-98"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <Bot className="w-5 h-5" />
+                                    <span>Start AI Interview</span>
+                                </div>
+                                <span className="text-xs text-blue-200 font-normal">Step-by-step chat with AI</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Personal Details */}
@@ -610,59 +612,90 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
                                 <div className="grid grid-cols-3 gap-2">
                                     {(() => {
                                         const conditionKeys = ['hypertension', 'diabetes', 'arthritis', 'asthma', 'heartDisease', 'thyroid', 'kidneyDisease', 'liverDisease', 'cancer', 'stroke', 'depression', 'none', 'other'];
-                                        return conditionKeys.map((key) => {
-                                            const conditionLabel = t(`condition.${key}`);
-                                            const conditionList = formData.chronic_conditions.split(', ').filter(c => c);
-                                            const isSelected = conditionList.includes(conditionLabel);
-                                            const isNone = key === 'none';
+                                        const standardLabels = conditionKeys.map(k => t(`condition.${k}`));
+                                        const conditionList = formData.chronic_conditions.split(', ').filter(c => c);
+                                        const customConditions = conditionList.filter(c => !standardLabels.includes(c));
 
-                                            return (
+                                        return (
+                                            <>
+                                            {conditionKeys.map((key) => {
+                                                const conditionLabel = t(`condition.${key}`);
+                                                let isSelected = conditionList.includes(conditionLabel);
+                                                const isNone = key === 'none';
+                                                
+                                                // If this is the "Other" checkbox, keep it synced with the input box visibility
+                                                if (key === 'other' && customConditions.length > 0) {
+                                                    isSelected = isSelected || true; 
+                                                }
+
+                                                return (
+                                                    <label
+                                                        key={key}
+                                                        className={`
+                                                            relative flex items-center gap-2 p-2 rounded-lg border-2 cursor-pointer transition-all text-sm
+                                                            ${isSelected
+                                                                ? isNone
+                                                                    ? 'border-gray-400 bg-gray-50 text-gray-700 font-medium'
+                                                                    : 'border-orange-500 bg-orange-50 text-orange-700 font-medium'
+                                                                : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50 text-gray-600'
+                                                            }
+                                                        `}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={() => {
+                                                                let newConditions = conditionList.filter(c => c !== t('condition.none'));
+
+                                                                if (key === 'none') {
+                                                                    newConditions = isSelected ? [] : [conditionLabel];
+                                                                    setShowOtherCondition(false);
+                                                                } else if (key === 'other') {
+                                                                    if (isSelected && customConditions.length === 0) {
+                                                                        newConditions = newConditions.filter(c => c !== conditionLabel);
+                                                                        setShowOtherCondition(false);
+                                                                        setOtherCondition('');
+                                                                    } else {
+                                                                        newConditions = [...newConditions, conditionLabel];
+                                                                        setShowOtherCondition(true);
+                                                                    }
+                                                                } else {
+                                                                    if (isSelected) {
+                                                                        newConditions = newConditions.filter(c => c !== conditionLabel);
+                                                                    } else {
+                                                                        newConditions = [...newConditions, conditionLabel];
+                                                                    }
+                                                                }
+
+                                                                setFormData({ ...formData, chronic_conditions: newConditions.length ? newConditions.join(', ') : '' });
+                                                            }}
+                                                            className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                                                        />
+                                                        <span className="text-sm">{conditionLabel}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                            
+                                            {/* Render dynamically added custom conditions as their own checked checkboxes */}
+                                            {customConditions.map((customCondition, idx) => (
                                                 <label
-                                                    key={key}
-                                                    className={`
-                                                        relative flex items-center gap-2 p-2 rounded-lg border-2 cursor-pointer transition-all text-sm
-                                                        ${isSelected
-                                                            ? isNone
-                                                                ? 'border-gray-400 bg-gray-50 text-gray-700 font-medium'
-                                                                : 'border-orange-500 bg-orange-50 text-orange-700 font-medium'
-                                                            : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50 text-gray-600'
-                                                        }
-                                                    `}
+                                                    key={`custom-${idx}`}
+                                                    className="relative flex items-center gap-2 p-2 rounded-lg border-2 border-orange-500 bg-orange-50 text-orange-700 font-medium cursor-pointer transition-all text-sm animate-fade-in-up"
                                                 >
                                                     <input
                                                         type="checkbox"
-                                                        checked={isSelected}
+                                                        checked={true}
                                                         onChange={() => {
-                                                            let newConditions = conditionList.filter(c => c !== t('condition.none'));
-
-                                                            if (key === 'none') {
-                                                                newConditions = isSelected ? [] : [conditionLabel];
-                                                                setShowOtherCondition(false);
-                                                            } else if (key === 'other') {
-                                                                if (isSelected) {
-                                                                    newConditions = newConditions.filter(c => c !== conditionLabel);
-                                                                    setShowOtherCondition(false);
-                                                                    setOtherCondition('');
-                                                                } else {
-                                                                    newConditions = [...newConditions, conditionLabel];
-                                                                    setShowOtherCondition(true);
-                                                                }
-                                                            } else {
-                                                                if (isSelected) {
-                                                                    newConditions = newConditions.filter(c => c !== conditionLabel);
-                                                                } else {
-                                                                    newConditions = [...newConditions, conditionLabel];
-                                                                }
-                                                            }
-
+                                                            const newConditions = conditionList.filter(c => c !== customCondition);
                                                             setFormData({ ...formData, chronic_conditions: newConditions.length ? newConditions.join(', ') : '' });
                                                         }}
                                                         className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                                                     />
-                                                    <span className="text-sm">{conditionLabel}</span>
+                                                    <span className="text-sm">{customCondition}</span>
                                                 </label>
-                                            );
-                                        });
+                                            ))}
+                                            </>
+                                        );
                                     })()}
                                 </div>
 
@@ -701,7 +734,19 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
                                         >
                                             {t('common.add')}
                                         </button>
-                                        <VoiceInput onTranscript={setOtherCondition} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                                        <VoiceInput onTranscript={(text) => {
+                                            const translated = mapConditionsToTranslated(text);
+                                            if (translated) {
+                                                setFormData(prev => {
+                                                    const current = prev.chronic_conditions.split(', ').filter(c => c && c !== t('condition.none') && c !== t('condition.other'));
+                                                    const incoming = translated.split(', ').filter(Boolean);
+                                                    const merged = Array.from(new Set([...current, ...incoming]));
+                                                    return { ...prev, chronic_conditions: merged.join(', ') };
+                                                });
+                                                setOtherCondition('');
+                                                setShowOtherCondition(false);
+                                            }
+                                        }} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
                                     </div>
                                 )}
                             </div>
@@ -715,59 +760,90 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
                                 <div className="grid grid-cols-3 gap-2">
                                     {(() => {
                                         const allergyKeys = ['dust', 'pollen', 'peanuts', 'dairy', 'shellfish', 'treeNuts', 'eggs', 'wheat', 'soy', 'animalDander', 'mold', 'insectStings', 'medications', 'none', 'other'];
-                                        return allergyKeys.map((key) => {
-                                            const allergyLabel = t(`allergy.${key}`);
-                                            const allergyList = formData.allergies.split(', ').filter(a => a);
-                                            const isSelected = allergyList.includes(allergyLabel);
-                                            const isNone = key === 'none';
+                                        const standardLabels = allergyKeys.map(k => t(`allergy.${k}`));
+                                        const allergyList = formData.allergies.split(', ').filter(a => a);
+                                        const customAllergies = allergyList.filter(a => !standardLabels.includes(a));
 
-                                            return (
+                                        return (
+                                            <>
+                                            {allergyKeys.map((key) => {
+                                                const allergyLabel = t(`allergy.${key}`);
+                                                let isSelected = allergyList.includes(allergyLabel);
+                                                const isNone = key === 'none';
+                                                
+                                                // If this is the "Other" checkbox, keep it synced with the input box visibility
+                                                if (key === 'other' && customAllergies.length > 0) {
+                                                    isSelected = isSelected || true; 
+                                                }
+
+                                                return (
+                                                    <label
+                                                        key={key}
+                                                        className={`
+                                                            relative flex items-center gap-2 p-2 rounded-lg border-2 cursor-pointer transition-all text-sm
+                                                            ${isSelected
+                                                                ? isNone
+                                                                    ? 'border-gray-400 bg-gray-50 text-gray-700 font-medium'
+                                                                    : 'border-orange-500 bg-orange-50 text-orange-700 font-medium'
+                                                                : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50 text-gray-600'
+                                                            }
+                                                        `}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={() => {
+                                                                let newAllergies = allergyList.filter(a => a !== t('allergy.none'));
+
+                                                                if (key === 'none') {
+                                                                    newAllergies = isSelected ? [] : [allergyLabel];
+                                                                    setShowOtherAllergy(false);
+                                                                } else if (key === 'other') {
+                                                                    if (isSelected && customAllergies.length === 0) {
+                                                                        newAllergies = newAllergies.filter(a => a !== allergyLabel);
+                                                                        setShowOtherAllergy(false);
+                                                                        setOtherAllergy('');
+                                                                    } else {
+                                                                        newAllergies = [...newAllergies, allergyLabel];
+                                                                        setShowOtherAllergy(true);
+                                                                    }
+                                                                } else {
+                                                                    if (isSelected) {
+                                                                        newAllergies = newAllergies.filter(a => a !== allergyLabel);
+                                                                    } else {
+                                                                        newAllergies = [...newAllergies, allergyLabel];
+                                                                    }
+                                                                }
+
+                                                                setFormData({ ...formData, allergies: newAllergies.length ? newAllergies.join(', ') : '' });
+                                                            }}
+                                                            className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+                                                        />
+                                                        <span className="text-sm">{allergyLabel}</span>
+                                                    </label>
+                                                );
+                                            })}
+                                            
+                                            {/* Render dynamically added custom allergies as their own checked checkboxes */}
+                                            {customAllergies.map((customAllergy, idx) => (
                                                 <label
-                                                    key={key}
-                                                    className={`
-                                                        relative flex items-center gap-2 p-2 rounded-lg border-2 cursor-pointer transition-all text-sm
-                                                        ${isSelected
-                                                            ? isNone
-                                                                ? 'border-gray-400 bg-gray-50 text-gray-700 font-medium'
-                                                                : 'border-orange-500 bg-orange-50 text-orange-700 font-medium'
-                                                            : 'border-gray-200 hover:border-orange-200 hover:bg-gray-50 text-gray-600'
-                                                        }
-                                                    `}
+                                                    key={`custom-${idx}`}
+                                                    className="relative flex items-center gap-2 p-2 rounded-lg border-2 border-orange-500 bg-orange-50 text-orange-700 font-medium cursor-pointer transition-all text-sm animate-fade-in-up"
                                                 >
                                                     <input
                                                         type="checkbox"
-                                                        checked={isSelected}
+                                                        checked={true}
                                                         onChange={() => {
-                                                            let newAllergies = allergyList.filter(a => a !== t('allergy.none'));
-
-                                                            if (key === 'none') {
-                                                                newAllergies = isSelected ? [] : [allergyLabel];
-                                                                setShowOtherAllergy(false);
-                                                            } else if (key === 'other') {
-                                                                if (isSelected) {
-                                                                    newAllergies = newAllergies.filter(a => a !== allergyLabel);
-                                                                    setShowOtherAllergy(false);
-                                                                    setOtherAllergy('');
-                                                                } else {
-                                                                    newAllergies = [...newAllergies, allergyLabel];
-                                                                    setShowOtherAllergy(true);
-                                                                }
-                                                            } else {
-                                                                if (isSelected) {
-                                                                    newAllergies = newAllergies.filter(a => a !== allergyLabel);
-                                                                } else {
-                                                                    newAllergies = [...newAllergies, allergyLabel];
-                                                                }
-                                                            }
-
+                                                            const newAllergies = allergyList.filter(a => a !== customAllergy);
                                                             setFormData({ ...formData, allergies: newAllergies.length ? newAllergies.join(', ') : '' });
                                                         }}
                                                         className="w-4 h-4 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
                                                     />
-                                                    <span className="text-sm">{allergyLabel}</span>
+                                                    <span className="text-sm">{customAllergy}</span>
                                                 </label>
-                                            );
-                                        });
+                                            ))}
+                                            </>
+                                        );
                                     })()}
                                 </div>
 
@@ -806,7 +882,19 @@ export default function RegistrationForm({ onSuccess, initialData, isEditing = f
                                         >
                                             {t('common.add')}
                                         </button>
-                                        <VoiceInput onTranscript={setOtherAllergy} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
+                                        <VoiceInput onTranscript={(text) => {
+                                            const translated = mapAllergiesToTranslated(text);
+                                            if (translated) {
+                                                setFormData(prev => {
+                                                    const current = prev.allergies.split(', ').filter(a => a && a !== t('allergy.none') && a !== t('allergy.other'));
+                                                    const incoming = translated.split(', ').filter(Boolean);
+                                                    const merged = Array.from(new Set([...current, ...incoming]));
+                                                    return { ...prev, allergies: merged.join(', ') };
+                                                });
+                                                setOtherAllergy('');
+                                                setShowOtherAllergy(false);
+                                            }
+                                        }} language={lang === 'en' ? 'en-US' : lang === 'hi' ? 'hi-IN' : 'mr-IN'} />
                                     </div>
                                 )}
                             </div>

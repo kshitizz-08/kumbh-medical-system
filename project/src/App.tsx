@@ -1,5 +1,5 @@
 import { useState, lazy, Suspense, useCallback, memo } from 'react';
-import { UserPlus, Search, Heart, CheckCircle2, Home, Loader2, Copy, Check, X, BarChart3, ArrowLeft, AlertTriangle } from 'lucide-react';
+import { UserPlus, Search, Heart, CheckCircle2, Home, Loader2, Copy, Check, X, BarChart3, ArrowLeft } from 'lucide-react';
 import { Devotee, MedicalRecord, DevoteeWithRecord } from './lib/api';
 import { useI18n } from './i18n/i18n';
 
@@ -12,7 +12,6 @@ const ChatBot = lazy(() => import('./components/ChatBot'));
 const WeatherWidget = lazy(() => import('./components/WeatherWidget'));
 const AnalyticsDashboard = lazy(() => import('./components/AnalyticsDashboard'));
 const LostFoundDashboard = lazy(() => import('./components/LostFoundDashboard'));
-const HighRiskDashboard = lazy(() => import('./components/HighRiskDashboard'));
 
 // Loading fallback component
 const ComponentLoader = memo(() => (
@@ -22,7 +21,7 @@ const ComponentLoader = memo(() => (
 ));
 ComponentLoader.displayName = 'ComponentLoader';
 
-type View = 'home' | 'register' | 'search' | 'analytics' | 'lost-found' | 'high-risk';
+type View = 'home' | 'register' | 'search' | 'analytics' | 'lost-found';
 type SelectedDevotee = Devotee & { medical_records: MedicalRecord | null };
 
 function App() {
@@ -144,17 +143,6 @@ function App() {
                   <Search className="w-4 h-4" aria-hidden="true" />
                   <span>{t('nav.lostFound')}</span>
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setCurrentView('high-risk')}
-                  className={`inline-flex items-center gap-1 px-3 py-1.5 border-l border-slate-200 transition-colors ${currentView === 'high-risk'
-                    ? 'bg-slate-900 text-white'
-                    : 'text-slate-700 hover:bg-white'
-                    }`}
-                >
-                  <AlertTriangle className="w-4 h-4" aria-hidden="true" />
-                  <span>{t('nav.highRisk')}</span>
-                </button>
               </nav>
 
               <div className="flex items-center gap-3">
@@ -242,17 +230,6 @@ function App() {
                   <h3 className="text-xl font-semibold mb-2">{t('home.cta.search.title')}</h3>
                   <p className="text-sky-100 text-sm">
                     {t('home.cta.search.desc')}
-                  </p>
-                </button>
-
-                <button
-                  onClick={() => setCurrentView('high-risk')}
-                  className="bg-gradient-to-r from-red-600 to-rose-600 text-white p-8 rounded-xl hover:from-red-700 hover:to-rose-700 transition-all shadow-xl hover:shadow-2xl transform hover:-translate-y-1 border border-red-400/70"
-                >
-                  <AlertTriangle className="w-12 h-12 mx-auto mb-3" />
-                  <h3 className="text-xl font-semibold mb-2">{t('home.cta.highRisk.title')}</h3>
-                  <p className="text-red-50 text-sm">
-                    {t('home.cta.highRisk.desc')}
                   </p>
                 </button>
 
@@ -435,30 +412,6 @@ function App() {
 
             <Suspense fallback={<ComponentLoader />}>
               <LostFoundDashboard />
-            </Suspense>
-          </div>
-        )}
-
-        {currentView === 'high-risk' && (
-          <div>
-            <div className="mb-6 flex items-center gap-4">
-              <button
-                onClick={() => setCurrentView('home')}
-                className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
-                aria-label={t('nav.backHome')}
-              >
-                <ArrowLeft className="w-6 h-6" />
-              </button>
-              <div>
-                <h2 className="text-3xl font-bold text-kumbh-deep">{t('highRisk.pageTitle')}</h2>
-                <p className="text-base text-slate-600 mt-1">
-                  {t('highRisk.pageDesc')}
-                </p>
-              </div>
-            </div>
-
-            <Suspense fallback={<ComponentLoader />}>
-              <HighRiskDashboard onSelectDevotee={handleSelectDevotee} />
             </Suspense>
           </div>
         )}

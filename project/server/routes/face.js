@@ -12,12 +12,12 @@ router.post('/analyze', async (req, res) => {
 
         if (!apiKey) {
             console.warn('Gemini API key missing. Using mock data.');
-            // Mock response for development/demo
             return res.json({
                 age: 25,
                 gender: 'male',
                 estimatedHeight: 170,
                 estimatedWeight: 65,
+                confidence: { age: 0.3, gender: 0.3, height: 0.1, weight: 0.1 },
                 mock: true
             });
         }
@@ -28,25 +28,18 @@ router.post('/analyze', async (req, res) => {
         const { GoogleGenerativeAI } = await import('@google/generative-ai');
         const genAI = new GoogleGenerativeAI(apiKey);
 
-        // List of models to try in order of preference/likelihood of free tier availability
+        // Models ordered by preference: newest/best first
         const modelsToTry = [
-            "gemini-2.0-flash-exp",
-            "gemini-2.0-flash",
+            "gemini-2.5-flash",
             "gemini-flash-latest",
-            "gemini-1.5-flash"
+            "gemini-2.5-pro",
+            "gemini-pro-latest"
         ];
 
         let result = null;
-        let lastError = null;
+        let errors = [];
 
-        const prompt = `Analyze this image of a person. Estimate their:
-        1. Age (number)
-        2. Gender ('male' or 'female')
-        3. Height in cm (number)
-        4. Weight in kg (number)
-        
-        Provide your best guess based on visual cues.
-        Return ONLY valid JSON with keys: age, gender, estimatedHeight, estimatedWeight. Do not use markdown code blocks.`;
+        const prompt = `Analyze this image and accurately estimate the age, gender, height (cm), and weight (kg) of the person.`;
 
         const imagePart = {
             inlineData: {
@@ -55,30 +48,83 @@ router.post('/analyze', async (req, res) => {
             }
         };
 
+        const { SchemaType } = await import('@google/generative-ai');
+        
+        const responseSchema = {
+            type: SchemaType.OBJECT,
+            properties: {
+                age: { type: SchemaType.INTEGER },
+                gender: { type: SchemaType.STRING },
+                estimatedHeight: { type: SchemaType.INTEGER },
+                estimatedWeight: { type: SchemaType.INTEGER }
+            },
+            required: ["age", "gender", "estimatedHeight", "estimatedWeight"]
+        };
+
         // Try models sequentially
         for (const modelName of modelsToTry) {
             try {
                 console.log(`Attempting analysis with model: ${modelName}`);
-                const model = genAI.getGenerativeModel({ model: modelName });
+                const model = genAI.getGenerativeModel({
+                    model: modelName,
+                    generationConfig: {
+                        responseMimeType: 'application/json',
+                        responseSchema: responseSchema,
+                        temperature: 0.2,
+                    },
+                });
                 result = await model.generateContent([prompt, imagePart]);
                 console.log(`Success with model: ${modelName}`);
                 break;
             } catch (error) {
                 console.warn(`Model ${modelName} failed:`, error.message);
-                lastError = error;
-                // Continue to next model
+                errors.push(`${modelName}: ${error.message}`);
             }
         }
 
         if (!result) {
-            throw new Error(`All Gemini models failed. Last error: ${lastError?.message}`);
+            throw new Error(`All Gemini models failed. Errors: ${errors.join(' | ')}`);
         }
 
         const responseText = result.response.text();
+        const data = JSON.parse(responseText);
 
-        // Clean up response if it wraps in markdown
-        const cleanedText = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
-        const data = JSON.parse(cleanedText);
+        // BMI cross-validation: flag implausible height/weight combinations
+        if (data.estimatedHeight && data.estimatedWeight) {
+            const heightM = data.estimatedHeight / 100;
+            const bmi = data.estimatedWeight / (heightM * heightM);
+
+            // Plausible BMI range: 12-50. Outside this range, adjust estimates.
+            if (bmi < 12 || bmi > 50) {
+                console.warn(`BMI out of plausible range (${bmi.toFixed(1)}). Adjusting estimates.`);
+                // Use Indian averages based on gender
+                if (data.gender === 'male') {
+                    data.estimatedHeight = 167;
+                    data.estimatedWeight = 65;
+                } else {
+                    data.estimatedHeight = 155;
+                    data.estimatedWeight = 55;
+                }
+                data.heightConfidence = 0.1;
+                data.weightConfidence = 0.1;
+            }
+
+            data.bmi = parseFloat(bmi.toFixed(1));
+        }
+
+        // Build structured confidence object for frontend
+        data.confidence = {
+            age: data.ageConfidence || 0.5,
+            gender: data.genderConfidence || 0.5,
+            height: data.heightConfidence || 0.2,
+            weight: data.weightConfidence || 0.2,
+        };
+
+        // Clean up flat confidence fields
+        delete data.ageConfidence;
+        delete data.genderConfidence;
+        delete data.heightConfidence;
+        delete data.weightConfidence;
 
         res.json(data);
     } catch (error) {
@@ -88,3 +134,4 @@ router.post('/analyze', async (req, res) => {
 });
 
 export default router;
+

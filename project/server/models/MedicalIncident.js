@@ -13,6 +13,8 @@ const medicalIncidentSchema = new mongoose.Schema(
     medical_center: { type: String, required: true },
     follow_up_required: { type: Boolean, default: false },
     follow_up_notes: { type: String, default: '' },
+    latitude: { type: Number, required: false },
+    longitude: { type: Number, required: false },
   },
   { timestamps: { createdAt: 'created_at', updatedAt: false } }
 );

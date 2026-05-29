@@ -62,7 +62,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
-          'face-api': ['face-api.js'],
+          'face-api': ['face-api.js'], // Includes TinyFaceDetector + SSD MobileNet v1
           'lucide-icons': ['lucide-react'],
         },
       },

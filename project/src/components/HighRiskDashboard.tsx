@@ -102,29 +102,6 @@ export default function HighRiskDashboard({ onSelectDevotee }: HighRiskDashboard
         }
     };
 
-    const getRiskBadge = (riskLevel: string, score: number) => {
-        const colors = {
-            'Critical': 'bg-red-100 text-red-800 border-red-300',
-            'High': 'bg-orange-100 text-orange-800 border-orange-300',
-            'Moderate': 'bg-yellow-100 text-yellow-800 border-yellow-300',
-            'Low': 'bg-green-100 text-green-800 border-green-300'
-        };
-
-        const icons = {
-            'Critical': '🔴',
-            'High': '🟠',
-            'Moderate': '🟡',
-            'Low': '🟢'
-        };
-
-        return (
-            <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border ${colors[riskLevel as keyof typeof colors]}`}>
-                <span>{icons[riskLevel as keyof typeof icons]}</span>
-                <span className="font-bold">{score}</span>
-                <span className="text-xs font-semibold uppercase">{riskLevel}</span>
-            </div>
-        );
-    };
 
     if (loading && patients.length === 0) {
         return (

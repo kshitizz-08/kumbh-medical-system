@@ -24,12 +24,28 @@ router.post('/', async (req, res) => {
       medical_center: req.body.medical_center,
       follow_up_required: Boolean(req.body.follow_up_required),
       follow_up_notes: req.body.follow_up_notes || '',
+      latitude: req.body.latitude,
+      longitude: req.body.longitude,
     });
 
     return res.status(201).json(formatIncident(incident.toObject()));
   } catch (error) {
     console.error('Failed to record incident', error);
     return res.status(500).json({ message: 'Failed to record incident', details: error.message });
+  }
+});
+
+router.get('/all', async (req, res) => {
+  try {
+    // Only return incidents that have coordinates, or return all to filter on frontend
+    const incidents = await MedicalIncident.find({ latitude: { $exists: true, $ne: null } })
+      .sort({ incident_date: -1 })
+      .limit(1000)
+      .lean();
+    return res.json(incidents.map((incident) => formatIncident(incident)));
+  } catch (error) {
+    console.error('Failed to fetch all incidents', error);
+    return res.status(500).json({ message: 'Failed to fetch all incidents', details: error.message });
   }
 });
 

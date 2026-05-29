@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import { Camera, X, CheckCircle, AlertCircle, Loader2, Info, SwitchCamera } from 'lucide-react';
 import * as faceapi from 'face-api.js';
+import * as ort from 'onnxruntime-web';
+import { preprocessImage, postprocessTensor } from '../utils/yoloUtils';
 import { useI18n } from '../i18n/i18n';
 
 type SelfieCaptureProps = {
@@ -32,6 +34,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
   } | null>(null);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedDescriptor, setCapturedDescriptor] = useState<number[] | null>(null);
+  const [yoloSession, setYoloSession] = useState<ort.InferenceSession | null>(null);
 
   // Refactor demographics to be fully editable state
   const [editableDemographics, setEditableDemographics] = useState<{
@@ -50,7 +53,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
 
-  // Load face-api.js models and TensorFlow pose detection
+  // Load face-api.js models — TinyFaceDetector for preview, SSD MobileNet for accurate capture
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -64,11 +67,23 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
         for (const url of sources) {
           try {
             await Promise.all([
-              faceapi.nets.tinyFaceDetector.loadFromUri(url),
+              faceapi.nets.tinyFaceDetector.loadFromUri(url),   // Fast — for real-time preview
+              faceapi.nets.ssdMobilenetv1.loadFromUri(url),     // Accurate — for photo capture
               faceapi.nets.faceLandmark68Net.loadFromUri(url),
               faceapi.nets.faceRecognitionNet.loadFromUri(url),
-              faceapi.nets.ageGenderNet.loadFromUri(url),
+              faceapi.nets.ageGenderNet.loadFromUri(url),       // Client-side age/gender pre-fill
             ]);
+
+            // Load YOLO ONNX Model
+            try {
+              ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+              const session = await ort.InferenceSession.create('/models/yolov8n-face.onnx', { executionProviders: ['wasm'] });
+              setYoloSession(session);
+              console.log('YOLOv8 ONNX model loaded successfully');
+            } catch (onnxErr) {
+              console.error('Failed to load YOLOv8 ONNX model:', onnxErr);
+            }
+
             faceModelsLoaded = true;
             setModelsLoaded(true);
             break;
@@ -132,11 +147,11 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
 
   // Real-time face detection
   useEffect(() => {
-    if (!modelsLoaded || !stream || !videoRef.current || !canvasRef.current) return;
+    if (!modelsLoaded || !stream || !videoRef.current || !canvasRef.current || !yoloSession) return;
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
 
     if (!ctx) return;
 
@@ -147,74 +162,44 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
 
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        const detections = await faceapi
-          .detectAllFaces(
-            video,
-            new faceapi.TinyFaceDetectorOptions({
-              inputSize: 320, // smaller = faster, good enough for validation
-              scoreThreshold: 0.45,
-            })
-          )
-          .withFaceLandmarks();
+        try {
+          // Preprocess and run YOLO inference
+          const tensorData = preprocessImage(canvas);
+          const inputTensor = new ort.Tensor('float32', tensorData, [1, 3, 640, 640]);
+          
+          // Use dynamically grabbed input name (usually 'images')
+          const feeds: Record<string, ort.Tensor> = {};
+          feeds[yoloSession.inputNames[0]] = inputTensor;
+          
+          const results = await yoloSession.run(feeds);
+          
+          // Use dynamically grabbed output name (usually 'output0')
+          const outputTensor = results[yoloSession.outputNames[0]];
+          
+          // Post-process to bounding boxes
+          const boxes = postprocessTensor(outputTensor, canvas.width, canvas.height);
 
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          // Clear and redraw
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Draw face detection boxes
-        detections.forEach((detection) => {
-          const box = detection.detection.box;
-          ctx.strokeStyle = '#00ff00';
-          ctx.lineWidth = 2;
-          ctx.strokeRect(box.x, box.y, box.width, box.height);
-        });
-
-        // Validate: Check if exactly one face is detected
-        if (detections.length === 0) {
-          setValidationStatus({
-            isValid: false,
-            message: t('selfie.noFace'),
+          // Draw YOLO face detection boxes
+          boxes.forEach((box) => {
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(box.x, box.y, box.width, box.height);
           });
-        } else if (detections.length > 1) {
-          setValidationStatus({
-            isValid: false,
-            message: t('selfie.multiFace'),
-          });
-        } else {
-          // Check if mouth is closed (not talking)
-          const landmarks = detections[0].landmarks;
-          const mouth = landmarks?.getMouth?.();
 
-          if (!mouth || mouth.length < 10) {
-            setValidationStatus({
-              isValid: true,
-              message: t('selfie.landmarksOk'),
-            });
-            return;
-          }
-
-          // Calculate mouth opening distance
-          const topLip = mouth[3]; // Top center of mouth
-          const bottomLip = mouth[9]; // Bottom center of mouth
-          const mouthOpening = Math.abs(topLip.y - bottomLip.y);
-
-          // Calculate face size for relative mouth opening
-          const faceBox = detections[0].detection.box;
-          const faceHeight = faceBox.height || 1;
-          const relativeMouthOpening = mouthOpening / faceHeight;
-
-          // Threshold: consider closed if mouth opening < 6% of face height
-          if (relativeMouthOpening < 0.06) {
-            setValidationStatus({
-              isValid: true,
-              message: t('selfie.ready'),
-            });
+          // Validate
+          if (boxes.length === 0) {
+            setValidationStatus({ isValid: false, message: t('selfie.noFace') });
+          } else if (boxes.length > 1) {
+            setValidationStatus({ isValid: false, message: t('selfie.multiFace') });
           } else {
-            setValidationStatus({
-              isValid: false,
-              message: t('selfie.mouthOpen'),
-            });
+            setValidationStatus({ isValid: true, message: t('selfie.ready') });
           }
+        } catch (error) {
+          console.error("YOLO inference error:", error);
         }
       }
     };
@@ -227,7 +212,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
         clearInterval(detectionIntervalRef.current);
       }
     };
-  }, [modelsLoaded, stream]);
+  }, [modelsLoaded, stream, yoloSession]);
 
   const capturePhoto = async () => {
     if (!videoRef.current || !canvasRef.current) {
@@ -263,16 +248,18 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     };
 
     try {
+      // Use SSD MobileNet v1 for capture — significantly more accurate than TinyFaceDetector
       const detection = await faceapi
         .detectSingleFace(
           canvas,
-          new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.45 })
+          new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
         )
         .withFaceLandmarks()
         .withFaceDescriptor();
 
       if (detection) {
         faceDescriptor = Array.from(detection.descriptor as Float32Array);
+        console.log('[SelfieCapture] Face detected and descriptor computed');
       }
     } catch (err) {
       console.error('Failed to compute face descriptor:', err);

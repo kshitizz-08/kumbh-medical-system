@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenerativeAI, SchemaType, type ResponseSchema } from '@google/generative-ai';
 import { CreateDevoteePayload } from './api';
 
 export type AutoFillResult = Partial<
@@ -22,113 +22,96 @@ export type AutoFillResult = Partial<
 >;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The master extraction prompt — exhaustive, multilingual, field-by-field
+// Structured JSON schema for Gemini — guarantees valid output format
+// ─────────────────────────────────────────────────────────────────────────────
+const RESPONSE_SCHEMA: ResponseSchema = {
+  type: SchemaType.OBJECT,
+  properties: {
+    full_name:               { type: SchemaType.STRING,  description: 'Patient full name', nullable: true },
+    age:                     { type: SchemaType.INTEGER, description: 'Age in years', nullable: true },
+    gender:                  { type: SchemaType.STRING,  description: 'Gender: Male, Female, or Other', nullable: true },
+    phone:                   { type: SchemaType.STRING,  description: 'Phone number (digits only)', nullable: true },
+    emergency_contact_name:  { type: SchemaType.STRING,  description: 'Emergency contact name', nullable: true },
+    emergency_contact_phone: { type: SchemaType.STRING,  description: 'Emergency contact phone (digits only)', nullable: true },
+    blood_group:             { type: SchemaType.STRING,  description: 'Blood group: A+, A-, B+, B-, AB+, AB-, O+, O-', nullable: true },
+    allergies:               { type: SchemaType.STRING,  description: 'Comma-separated allergy list', nullable: true },
+    chronic_conditions:      { type: SchemaType.STRING,  description: 'Comma-separated condition list', nullable: true },
+    current_medications:     { type: SchemaType.STRING,  description: 'Comma-separated medication list', nullable: true },
+    past_surgeries:          { type: SchemaType.STRING,  description: 'Comma-separated surgery list', nullable: true },
+    special_notes:           { type: SchemaType.STRING,  description: 'Any other important medical details', nullable: true },
+  },
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Few-Shot extraction prompt — multilingual, with worked examples
 // ─────────────────────────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are a highly accurate medical data extraction engine for the Nashik Kumbh Mela Medical System.
 
-Your ONLY job: analyze the spoken text below and extract EVERY SINGLE piece of medical and personal information mentioned.
-The text may be in English, Hindi, Marathi, or a MIX of all three (code-mixing is normal in India). Extract regardless of language.
+Your ONLY job: analyze the spoken text and extract EVERY piece of medical and personal information.
+The text may be in English, Hindi, Marathi, or a MIX of all three (code-mixing is normal in India).
 
-IMPORTANT RULES:
+RULES:
 1. Extract EVERY field that is mentioned, even partially.
-2. NEVER leave a field blank if the information was spoken.
-3. For unknown/missing fields, simply do NOT include them in the JSON.
-4. Return ONLY a raw JSON object — no markdown, no explanation, no code fences.
+2. For unknown/missing fields, return null.
+3. Normalize phone numbers to digits only.
+4. Normalize gender to exactly "Male", "Female", or "Other".
+5. Normalize blood group to exactly one of: A+, A-, B+, B-, AB+, AB-, O+, O-.
 
-JSON SCHEMA — return only these keys:
-{
-  "full_name": string,                // Patient full name
-  "age": number,                      // Age in years (integer)
-  "gender": "Male"|"Female"|"Other",  // Gender
-  "phone": string,                    // Phone (digits only, no spaces)
-  "emergency_contact_name": string,   // Emergency contact person's name
-  "emergency_contact_phone": string,  // Emergency contact phone (digits only)
-  "blood_group": "A+"|"A-"|"B+"|"B-"|"AB+"|"AB-"|"O+"|"O-",
-  "allergies": string,                // Comma-separated allergy list
-  "chronic_conditions": string,       // Comma-separated condition list
-  "current_medications": string,      // Comma-separated medication list
-  "past_surgeries": string,           // Comma-separated surgery list
-  "special_notes": string             // Any other important medical details
-}
+EXTRACTION GUIDE (keywords to recognize across languages):
+- Name: "my name is", "naam hai", "मेरा नाम", "माझे नाव"
+- Age: "X years old", "X saal", "X varsh", "X वर्षे", "उमर X"
+- Gender: Male = "male/man/purush/पुरुष", Female = "female/woman/mahila/महिला/stri/स्त्री"
+- Phone: "phone/mobile/contact X", any 10-digit number
+- Blood Group: "A positive", "B negative", "raktgat", "रक्तगट", "rakt samuh"
+- Conditions: "diabetes/sugar/मधुमेह", "BP/hypertension/उच्च रक्तदाब", "asthma/dama/दमा", "heart/हृदय", "thyroid/थायरॉईड", "kidney/किडनी"
+- Allergies: "dust/dhul/धूळ", "peanut/shengdana/मूंगफली", "milk/doodh", "penicillin"
+- Medications: "tablet/medicine/dawa/dawai/aushadh" + drug name (Metformin, Aspirin, Amlodipine, etc.)
+- Surgeries: "surgery/operation/shastrakraya" + description
+- Emergency contact: "emergency contact/sambandhi/relative" + name and phone
 
-EXTRACTION GUIDE (English / Hindi / Marathi keywords to recognize):
+CRITICAL: A pilgrim at Kumbh Mela might need emergency care. Every detail matters.`;
 
-full_name:
-  - "my name is X", "naam X hai", "naam X", "मेरा नाम X", "माझे नाव X"
-  - "patient name is X", "X ka naam", "naam hai X"
-
-age:
-  - "X years old", "X saal", "X varsh", "X वर्षे", "X साल", "wayo X", "vay X"
-  - "age X", "umar X"
-
-gender:
-  - Male: "male", "man", "purush", "पुरुष", "पुरुषी"
-  - Female: "female", "woman", "lady", "mahila", "महिला", "stri", "स्त्री", "aurat"
-  
-phone:
-  - "phone X", "mobile X", "contact X", "number X", "fone X"
-  - Extract any 10-digit number as phone
-  - Convert spoken digits: "nine eight seven six" → "9876"
-
-emergency_contact_name:
-  - "emergency contact X", "sambandhi X", "relative X", "family contact X"
-  - "X ka contact", "X ke naam se contact karo", "contact person X"
-  
-emergency_contact_phone:
-  - Phone number mentioned right after emergency contact name
-  - "emergency number X", "unka phone X", "tyanche phone X"
-
-blood_group:
-  - "A positive/negative", "B positive/negative", "AB positive/negative", "O positive/negative"
-  - "A posiṭiv", "O negaṭiv", "raktgat A positive", "रक्तगट A+", "blood group X"
-  - Hindi: "rakt samuh", Marathi: "rakt gat"
-
-chronic_conditions (extract all mentioned):
-  - Diabetes: "diabetes", "sugar", "madhumeh", "मधुमेह", "sugar problem", "BP sugar"
-  - Hypertension: "high BP", "high blood pressure", "hypertension", "BP", "raktadab", "उच्च रक्तदाब"
-  - Asthma: "asthma", "dama", "दमा", "breathing problem", "श्वासाचा त्रास", "sans ki problem"
-  - Heart Disease: "heart disease", "heart problem", "cardiac", "हृदय रोग", "दिल की बीमारी"
-  - Thyroid: "thyroid", "थायरॉईड", "थायरॉइड"
-  - Arthritis: "arthritis", "joint pain", "sande dukhi", "सांधेदुखी", "ghutne ka dard"
-  - Kidney: "kidney disease", "kidney problem", "मूत्रपिंड", "किडनी", "nephritis"
-  - Liver: "liver problem", "liver disease", "यकृत", "लीवर", "hepatitis"
-  - Cancer: "cancer", "कर्करोग", "कैंसर", "tumor"
-  - Stroke: "stroke", "paralysis", "अर्धांगवायू", "laqwa", "लकवा"
-  - Depression: "depression", "anxiety", "mental health", "अवसाद", "चिंता"
-
-allergies (extract all mentioned):
-  - Dust: "dust allergy", "dhul allergy", "धूळ ऍलर्जी"
-  - Pollen: "pollen allergy"
-  - Peanuts: "peanut", "shengdana", "मूंगफली", "शेंगदाणे"
-  - Dairy/Milk: "milk allergy", "dairy allergy", "doodh", "dudh"
-  - Shellfish: "shellfish", "prawn", "crab"
-  - Tree Nuts: "tree nuts", "cashew", "almond", "walnut", "kaju", "badam"
-  - Eggs: "egg allergy", "anda allergy"
-  - Wheat/Gluten: "wheat", "gluten", "gehun"
-  - Soy: "soy", "soya"
-  - Animal Dander: "animal allergy", "pet allergy", "cat allergy", "dog allergy"
-  - Mold: "mold", "fungus", "burti"
-  - Insect Stings: "bee sting", "insect bite", "kida"
-  - Medications: "medicine allergy", "drug allergy", "penicillin allergy"
-
-current_medications (list all medications mentioned):
-  - "tablet X", "medicine X", "dawa X", "le raha hai X", "khato X", "X lete hain"
-  - Drug names: Metformin, Amlodipine, Aspirin, Atorvastatin, etc.
-  - Dosages if mentioned: "Metformin 500mg"
-  - Hindi: "dawai", "dava"  Marathi: "aushadh"
-
-past_surgeries (list all surgeries mentioned):
-  - "surgery X", "operation X", "shastrakraya X", "operation hua"
-  - "knee surgery", "heart surgery", "appendix", "bypass", "C-section", "cesarean"
-  - Hindi: "operation huya"  Marathi: "operation zale"
-
-special_notes:
-  - Anything else medically important that doesn't fit above fields
-  - "wheelchair user", "hearing impaired", "visually impaired"
-  - Any specific medical request or note
-
-CRITICAL: Extract EVERYTHING. A pilgrim at Kumbh Mela might need emergency care. Every detail matters.
-Return ONLY the JSON. Nothing else.`;
+// ─────────────────────────────────────────────────────────────────────────────
+// Few-Shot examples — 5 realistic multilingual transcripts
+// ─────────────────────────────────────────────────────────────────────────────
+const FEW_SHOT_EXAMPLES = [
+  {
+    input: `Mera naam Rajesh Kumar hai, age 52 saal, male. Phone number 9876543210. Blood group B positive. 
+Mujhe diabetes hai aur high BP bhi hai. Metformin 500mg aur Amlodipine 5mg le raha hoon. 
+Emergency contact meri wife Sunita hai, unka phone 9123456780. Peanut allergy hai mujhe.
+2019 mein appendix ka operation hua tha.`,
+    output: { full_name: "Rajesh Kumar", age: 52, gender: "Male", phone: "9876543210", blood_group: "B+", chronic_conditions: "Diabetes, Hypertension (High BP)", current_medications: "Metformin 500mg, Amlodipine 5mg", emergency_contact_name: "Sunita", emergency_contact_phone: "9123456780", allergies: "Peanuts", past_surgeries: "Appendix (2019)", special_notes: null }
+  },
+  {
+    input: `माझे नाव सुनंदा पाटील, वय ६५ वर्षे, महिला. फोन 8899776655. रक्तगट O positive.
+मला दमा आहे आणि thyroid चा त्रास आहे. Levothyroxine घेते रोज. 
+शेंगदाणे आणि धूळ allergy आहे. 
+Emergency contact माझा मुलगा विकास, त्यांचा phone 7766554433.
+गेल्या वर्षी cataract चे operation झाले.`,
+    output: { full_name: "Sunanda Patil", age: 65, gender: "Female", phone: "8899776655", blood_group: "O+", chronic_conditions: "Asthma, Thyroid Disorder", current_medications: "Levothyroxine", allergies: "Peanuts, Dust", emergency_contact_name: "Vikas", emergency_contact_phone: "7766554433", past_surgeries: "Cataract surgery (last year)", special_notes: null }
+  },
+  {
+    input: `My name is Aisha Khan, I am 34 years old, female. My phone is 7788990011.
+Blood group AB negative. I have no chronic conditions but I am allergic to penicillin and shellfish.
+Currently taking no medications. My husband Farhan is my emergency contact, his number is 9900112233.
+I had a C-section two years ago. I am also hearing impaired, please note.`,
+    output: { full_name: "Aisha Khan", age: 34, gender: "Female", phone: "7788990011", blood_group: "AB-", chronic_conditions: null, current_medications: null, allergies: "Penicillin, Shellfish", emergency_contact_name: "Farhan", emergency_contact_phone: "9900112233", past_surgeries: "C-section (2 years ago)", special_notes: "Hearing impaired" }
+  },
+  {
+    input: `Patient name Ramchandra Yadav, 78 saal, male. Phone 6677889900. O negative blood group.
+Heart disease hai, diabetes bhi, kidney problem bhi shuru ho gayi hai. 
+Aspirin, Insulin injection, aur Losartan le rahe hain. Bypass surgery 2018 mein hua tha, 
+knee replacement bhi 2020 mein hua. Milk allergy hai. Wheelchair user hain. 
+Beta Suresh ka number 8811223344, emergency contact.`,
+    output: { full_name: "Ramchandra Yadav", age: 78, gender: "Male", phone: "6677889900", blood_group: "O-", chronic_conditions: "Heart Disease, Diabetes, Kidney Disease", current_medications: "Aspirin, Insulin, Losartan", allergies: "Dairy/Milk", emergency_contact_name: "Suresh", emergency_contact_phone: "8811223344", past_surgeries: "Bypass surgery (2018), Knee replacement (2020)", special_notes: "Wheelchair user" }
+  },
+  {
+    input: `naam Priya hai mera, 28 years old female. contact number 9988776655. 
+blood group A positive. koi beemar nahi, koi allergy nahi, koi dawai nahi.
+mummy ka naam Rekha hai emergency ke liye, phone 9876501234.`,
+    output: { full_name: "Priya", age: 28, gender: "Female", phone: "9988776655", blood_group: "A+", chronic_conditions: null, current_medications: null, allergies: null, emergency_contact_name: "Rekha", emergency_contact_phone: "9876501234", past_surgeries: null, special_notes: null }
+  }
+];
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -144,7 +127,8 @@ export async function parseVoiceToFormData(transcript: string): Promise<AutoFill
     return enhancedLocalParse(transcript);
   }
 
-  const modelNames = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-pro'];
+  // Models ordered by preference: best accuracy first
+  const modelNames = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-flash-latest'];
 
   for (const modelName of modelNames) {
     try {
@@ -152,23 +136,34 @@ export async function parseVoiceToFormData(transcript: string): Promise<AutoFill
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({
         model: modelName,
+        systemInstruction: SYSTEM_PROMPT,
         generationConfig: {
-          temperature: 0.1,        // low temperature = more deterministic
+          temperature: 0.1,
           maxOutputTokens: 1024,
+          // Structured JSON output — guarantees valid JSON every time
+          responseMimeType: 'application/json',
+          responseSchema: RESPONSE_SCHEMA,
         },
       });
 
-      const fullPrompt = `${SYSTEM_PROMPT}\n\n---\nSPOKEN TEXT TO ANALYZE:\n"${transcript}"\n---\nJSON OUTPUT:`;
+      // Build few-shot conversation as prompt parts
+      const fewShotParts: string[] = [];
+      for (const example of FEW_SHOT_EXAMPLES) {
+        fewShotParts.push(`SPOKEN TEXT: "${example.input}"\nEXTRACTED JSON: ${JSON.stringify(example.output)}`);
+      }
+
+      const fullPrompt = `Here are examples of correct extractions:\n\n${fewShotParts.join('\n\n---\n\n')}\n\n---\n\nNow extract from this spoken text:\n\nSPOKEN TEXT: "${transcript}"`;
 
       const result = await model.generateContent(fullPrompt);
       const rawText = result.response.text().trim();
 
       console.log('[VoiceAutoFill] Raw response:', rawText);
 
-      const parsed = extractJsonFromText(rawText);
+      // With structured output mode, this should always be valid JSON
+      const parsed = safeParseJson(rawText);
       if (parsed) {
         const sanitized = sanitizeResult(parsed);
-        console.log('[VoiceAutoFill] Final extracted fields:', Object.keys(sanitized));
+        console.log('[VoiceAutoFill] ✅ Extracted fields:', Object.keys(sanitized));
         console.log('[VoiceAutoFill] Values:', sanitized);
         return sanitized;
       } else {
@@ -184,41 +179,24 @@ export async function parseVoiceToFormData(transcript: string): Promise<AutoFill
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Robust JSON extraction — handles fences, extra text, malformed output
+// Safe JSON parsing — with structured output, this is mostly a safety net
 // ─────────────────────────────────────────────────────────────────────────────
-function extractJsonFromText(text: string): any | null {
-  // 1. Direct parse
+function safeParseJson(text: string): any | null {
+  // 1. Direct parse (should work with structured output mode)
   try { return JSON.parse(text); } catch {}
 
-  // 2. Find JSON object in the text
+  // 2. Strip any accidental markdown fences
+  const stripped = text.replace(/^```(?:json)?\s*/im, '').replace(/```\s*$/im, '').trim();
+  try { return JSON.parse(stripped); } catch {}
+
+  // 3. Find JSON object in the text
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (jsonMatch) {
     try { return JSON.parse(jsonMatch[0]); } catch {}
-    // Try to fix trailing commas and re-parse
     try {
       const fixed = jsonMatch[0].replace(/,\s*([}\]])/g, '$1');
       return JSON.parse(fixed);
     } catch {}
-  }
-
-  // 3. Strip markdown fences
-  const stripped = text.replace(/^```(?:json)?\s*/im, '').replace(/```\s*$/im, '').trim();
-  try { return JSON.parse(stripped); } catch {}
-
-  // 4. Extract the first valid JSON object character by character
-  let braceDepth = 0;
-  let start = -1;
-  for (let i = 0; i < text.length; i++) {
-    if (text[i] === '{') {
-      if (start === -1) start = i;
-      braceDepth++;
-    } else if (text[i] === '}') {
-      braceDepth--;
-      if (braceDepth === 0 && start !== -1) {
-        try { return JSON.parse(text.slice(start, i + 1)); } catch {}
-        break;
-      }
-    }
   }
 
   console.warn('[VoiceAutoFill] Failed to parse JSON from text:', text.slice(0, 200));
@@ -260,7 +238,6 @@ function sanitizeResult(raw: any): AutoFillResult {
     if (typeof raw[field] === 'string' && raw[field].trim()) {
       result[field] = raw[field].trim();
     } else if (Array.isArray(raw[field]) && raw[field].length > 0) {
-      // Handle case where Gemini returns an array instead of string
       result[field] = (raw[field] as string[]).join(', ');
     }
   }
@@ -306,7 +283,6 @@ function enhancedLocalParse(transcript: string): AutoFillResult {
   else if (/\b(male|man|purush|पुरुष|gents)\b/i.test(tl)) result.gender = 'Male';
 
   // ── Phone ──
-  // 10-digit sequences
   const phones = [...tl.matchAll(/\b(\d{10})\b/g)].map(m => m[1]);
   if (phones[0]) result.phone = phones[0];
   if (phones[1]) result.emergency_contact_phone = phones[1];
@@ -381,7 +357,6 @@ function enhancedLocalParse(transcript: string): AutoFillResult {
   // ── Current Medications ──
   const medKeywords = /\b(metformin|aspirin|amlodipine|atorvastatin|lisinopril|paracetamol|omeprazole|pantoprazole|ramipril|losartan|insulin|warfarin|clopidogrel|levothyroxine|atenolol|amlod|glipizide|glibenclamide|glucophage|januvia|janumet)\b/ig;
   const meds = [...tl.matchAll(medKeywords)].map(m => m[1].charAt(0).toUpperCase() + m[1].slice(1));
-  // Also catch "tablet X" or "taking X"
   const takingPat = /(?:taking|le\s*raha|khato|lete\s*hain|dawa|tablet|medicine|capsule)\s+([a-z][a-z\s]+?)(?:\s*[,.]|\s+(?:and|aur|ani|for|\d))/gi;
   for (const m of tl.matchAll(takingPat)) {
     const med = m[1].trim();
@@ -396,7 +371,6 @@ function enhancedLocalParse(transcript: string): AutoFillResult {
     const s = m[1].trim();
     if (s.length > 2) surgeries.push(s.charAt(0).toUpperCase() + s.slice(1));
   }
-  // Named surgeries
   const namedSurgs = /\b(bypass|c-?section|cesarean|appendix|hysterectomy|angioplasty|knee\s*replacement|hip\s*replacement|cataract|gallbladder)\b/ig;
   for (const m of tl.matchAll(namedSurgs)) {
     surgeries.push(m[1].charAt(0).toUpperCase() + m[1].slice(1));

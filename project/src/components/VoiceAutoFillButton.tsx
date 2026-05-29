@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Mic, MicOff, Sparkles, AlertCircle, CheckCircle, Loader2, Square } from 'lucide-react';
+import { MicOff, Sparkles, AlertCircle, CheckCircle, Loader2, Square } from 'lucide-react';
 import { parseVoiceToFormData, AutoFillResult } from '../lib/geminiAutoFill';
 import { useI18n } from '../i18n/i18n';
 
