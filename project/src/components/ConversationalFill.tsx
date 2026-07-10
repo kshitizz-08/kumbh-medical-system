@@ -316,9 +316,9 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
       utterance.voice = selectedVoice;
     }
 
-    utterance.rate = 1.15; // 15% faster speech
+    utterance.rate = 1.0; // Normal speech speed
     utterance.pitch = 1.05;
-    utterance.onend = () => onDone?.();
+    utterance.onend  = () => onDone?.();
     utterance.onerror = () => onDone?.();
     window.speechSynthesis.speak(utterance);
   }, [isTTSOn, lang]);
@@ -337,20 +337,37 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
 
   const startListening = useCallback(() => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) return;
+    // Abort any in-flight recognition first
+    try { recognitionRef.current?.abort(); } catch (_) {}
     // @ts-ignore
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const recognition = new SR() as SpeechRecognition;
-    recognition.continuous = false;
+    recognition.continuous = false;   // Auto-stops after user pauses → instant submit
     recognition.interimResults = true;
     recognition.lang = language;
+    recognition.maxAlternatives = 3;
     finalTranscriptRef.current = '';
 
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (e: any) => {
       let interim = '';
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) finalTranscriptRef.current += e.results[i][0].transcript;
-        else interim += e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          let bestTranscript = e.results[i][0].transcript;
+          let bestConfidence = e.results[i][0].confidence || 0;
+          for (let j = 1; j < e.results[i].length; j++) {
+            const alt = e.results[i][j];
+            if ((alt.confidence || 0) > bestConfidence) {
+              bestConfidence = alt.confidence;
+              bestTranscript = alt.transcript;
+            }
+          }
+          if (bestConfidence === 0 || bestConfidence >= 0.3) {
+            finalTranscriptRef.current += bestTranscript;
+          }
+        } else {
+          interim += e.results[i][0].transcript;
+        }
       }
       setInterimText(interim);
     };
@@ -365,28 +382,27 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
       }
     };
     recognitionRef.current = recognition;
-    recognition.start();
+    try { recognition.start(); } catch (_) {}
   }, [language]); // eslint-disable-line
 
   const stopListening = () => { recognitionRef.current?.stop(); };
 
   const askStep = useCallback((index: number) => {
     if (index >= STEPS.length) {
-      // Done!
-      setIsTypingAI(true);
-      setTimeout(() => {
-        setIsTypingAI(false);
-        addAIMessage(DONE_MESSAGES[lang]);
-        setIsDone(true);
-        speak(DONE_MESSAGES[lang]);
-      }, 300);
+      setIsTypingAI(false);
+      addAIMessage(DONE_MESSAGES[lang]);
+      setIsDone(true);
+      speak(DONE_MESSAGES[lang]);
       return;
     }
     const step = STEPS[index];
     const question = step.question[lang];
     addAIMessage(question);
-    speak(question, () => setTimeout(startListening, 50));
     scrollToBottom();
+    // Cancel any lingering TTS, then speak new question AND start mic simultaneously
+    window.speechSynthesis?.cancel();
+    speak(question);           // fire-and-forget – don't wait for onend
+    setTimeout(startListening, 80); // mic starts right away, overlapping TTS
   }, [lang, addAIMessage, speak, startListening]);
 
   // Initialize and load voices
@@ -416,25 +432,20 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
     addUserMessage(text, step.field);
 
     if (extracted !== undefined && extracted !== '') {
-      // Fill the form field
       onAutoFill({ [step.field]: extracted } as AutoFillResult);
-
-      const confirmText = CONFIRM_PREFIXES[lang];
-      // Skip AI typing simulation, add instantly
-      addAIMessage(`${confirmText} **${extracted}**`);
-      
-      // Immediately move to the next question, NO spoken confirmation!
+      // Show brief confirm text then jump instantly to next question
+      addAIMessage(`${CONFIRM_PREFIXES[lang]} **${extracted}**`);
+      // No TTS on confirm — saves ~1-2 sec per step
       const next = currentStepIndex + 1;
       setStepIndex(next);
-      askStep(next);
+      // Small delay so confirm message renders before next question appears
+      setTimeout(() => askStep(next), 120);
       
     } else if (isNone && step.optional) {
-      // Explicitly skipped an optional field
-      const skipMsg = SKIP_MESSAGES[lang];
-      addAIMessage(skipMsg);
+      addAIMessage(SKIP_MESSAGES[lang]);
       const next = currentStepIndex + 1;
       setStepIndex(next);
-      askStep(next);
+      setTimeout(() => askStep(next), 120);
       
     } else {
       // Regex failed to parse (e.g. didn't hear a number), or tried to skip a required field
@@ -444,7 +455,8 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
         mr: "क्षमस्व, मला समजले नाही. कृपया योग्य उत्तर द्या."
       };
       addAIMessage(errorMsg[lang]);
-      speak(errorMsg[lang], () => setTimeout(startListening, 50));
+      speak(errorMsg[lang]);
+      setTimeout(startListening, 100); // restart mic quickly
     }
   }, [stepIndex, lang, addAIMessage, addUserMessage, onAutoFill, askStep, speak, startListening]);
 

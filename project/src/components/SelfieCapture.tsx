@@ -35,6 +35,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [capturedDescriptor, setCapturedDescriptor] = useState<number[] | null>(null);
   const [yoloSession, setYoloSession] = useState<ort.InferenceSession | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   // Refactor demographics to be fully editable state
   const [editableDemographics, setEditableDemographics] = useState<{
@@ -54,6 +55,21 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
 
 
   // Load face-api.js models — TinyFaceDetector for preview, SSD MobileNet for accurate capture
+  // Inject fadeInUp keyframe once
+  useEffect(() => {
+    if (!document.getElementById('selfie-capture-styles')) {
+      const s = document.createElement('style');
+      s.id = 'selfie-capture-styles';
+      s.textContent = `
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `;
+      document.head.appendChild(s);
+    }
+  }, []);
+
   useEffect(() => {
     const loadModels = async () => {
       try {
@@ -270,9 +286,8 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     setCapturedImage(imageData);
     setCapturedDescriptor(faceDescriptor);
 
-    // Initial optimistic UI update (shows "Analyzing..." or defaults?)
-    // Let's set defaults first so UI is usable immediately
-    setEditableDemographics(initialDemographics);
+    // Show loading state while AI analyzes — don't set defaults yet
+    setIsAnalyzing(true);
 
     // Call Backend Gemini API
     try {
@@ -293,10 +308,17 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
             estimatedHeight: apiData.estimatedHeight?.toString() || initialDemographics.estimatedHeight,
             estimatedWeight: apiData.estimatedWeight?.toString() || initialDemographics.estimatedWeight
           });
+        } else {
+          setEditableDemographics(initialDemographics);
         }
+      } else {
+        setEditableDemographics(initialDemographics);
       }
     } catch (apiErr) {
       console.warn('Face API failed:', apiErr);
+      setEditableDemographics(initialDemographics);
+    } finally {
+      setIsAnalyzing(false);
     }
 
     // Stop camera stream
@@ -327,6 +349,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     setCapturedImage(null);
     setCapturedDescriptor(null);
     setValidationStatus(null);
+    setIsAnalyzing(false);
 
     // Restart logic is handled by the effect or we restart manually.
     // Since we unmount/remount logic isn't clean here, let's just nullify image and ensuring stream logic triggers?
@@ -397,55 +420,91 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
               </div>
 
               {/* Manual Edit Form */}
-              <div className="flex-1 bg-blue-50 p-4 rounded-lg space-y-3">
+              <div className="flex-1 bg-blue-50 p-4 rounded-lg space-y-3 relative">
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                   <Info className="w-4 h-4 text-blue-600" />
                   AI Estimate (Adjust if needed)
                 </h3>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Age (Years)</label>
-                    <input
-                      type="number"
-                      value={editableDemographics.age}
-                      onChange={(e) => setEditableDemographics({ ...editableDemographics, age: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                    />
+                {/* ── AI Loading Overlay ── */}
+                {isAnalyzing ? (
+                  <div className="flex flex-col items-center justify-center py-8 gap-3">
+                    <div className="relative w-14 h-14">
+                      {/* Outer spinning ring */}
+                      <svg className="absolute inset-0 w-full h-full animate-spin" viewBox="0 0 56 56" fill="none">
+                        <circle cx="28" cy="28" r="24" stroke="#bfdbfe" strokeWidth="4" />
+                        <path d="M28 4a24 24 0 0 1 24 24" stroke="#2563eb" strokeWidth="4" strokeLinecap="round" />
+                      </svg>
+                      {/* Inner brain/AI icon */}
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <svg viewBox="0 0 24 24" className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9.5 2a2.5 2.5 0 0 1 0 5H9a7 7 0 0 0 0 14h6a7 7 0 0 0 0-14h-.5a2.5 2.5 0 0 1 0-5" />
+                          <path d="M6 10h.01M18 10h.01M12 10h.01M6 14h.01M18 14h.01M12 14h.01" />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-blue-700">AI is analyzing your photo…</p>
+                      <p className="text-xs text-blue-500 mt-0.5">Estimating age, gender, height & weight</p>
+                    </div>
+                    {/* Animated dots */}
+                    <div className="flex gap-1.5">
+                      {[0, 1, 2].map(i => (
+                        <span
+                          key={i}
+                          className="w-2 h-2 rounded-full bg-blue-400"
+                          style={{ animation: `pulse 1.2s ${i * 0.2}s ease-in-out infinite` }}
+                        />
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Gender</label>
-                    <select
-                      value={editableDemographics.gender}
-                      onChange={(e) => setEditableDemographics({ ...editableDemographics, gender: e.target.value as 'male' | 'female' })}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="male">Male</option>
-                      <option value="female">Female</option>
-                    </select>
+                ) : (
+                  <div style={{ animation: 'fadeInUp 0.4s ease both' }}>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Age (Years)</label>
+                        <input
+                          type="number"
+                          value={editableDemographics.age}
+                          onChange={(e) => setEditableDemographics({ ...editableDemographics, age: e.target.value })}
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Gender</label>
+                        <select
+                          value={editableDemographics.gender}
+                          onChange={(e) => setEditableDemographics({ ...editableDemographics, gender: e.target.value as 'male' | 'female' })}
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="male">Male</option>
+                          <option value="female">Female</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Height (cm)</label>
+                        <input
+                          type="number"
+                          value={editableDemographics.estimatedHeight}
+                          onChange={(e) => setEditableDemographics({ ...editableDemographics, estimatedHeight: e.target.value })}
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Weight (kg)</label>
+                        <input
+                          type="number"
+                          value={editableDemographics.estimatedWeight}
+                          onChange={(e) => setEditableDemographics({ ...editableDemographics, estimatedWeight: e.target.value })}
+                          className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">
+                      Verify these details carefully. They will be used for medical checks.
+                    </p>
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Height (cm)</label>
-                    <input
-                      type="number"
-                      value={editableDemographics.estimatedHeight}
-                      onChange={(e) => setEditableDemographics({ ...editableDemographics, estimatedHeight: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Weight (kg)</label>
-                    <input
-                      type="number"
-                      value={editableDemographics.estimatedWeight}
-                      onChange={(e) => setEditableDemographics({ ...editableDemographics, estimatedWeight: e.target.value })}
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">
-                  Verify these details carefully. They will be used for medical checks.
-                </p>
+                )}
               </div>
             </div>
 
@@ -458,10 +517,20 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
               </button>
               <button
                 onClick={confirmCapture}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center justify-center gap-2"
+                disabled={isAnalyzing}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <CheckCircle className="w-5 h-5" />
-                {t('selfie.usePhoto')}
+                {isAnalyzing ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Analyzing…
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-5 h-5" />
+                    {t('selfie.usePhoto')}
+                  </>
+                )}
               </button>
             </div>
           </div>
