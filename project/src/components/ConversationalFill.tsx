@@ -3,6 +3,39 @@ import { X, Mic, MicOff, SkipForward, CheckCircle2, Bot, ChevronRight, Volume2, 
 import { AutoFillResult } from '../lib/geminiAutoFill';
 import { useI18n } from '../i18n/i18n';
 
+// ─── English STT normalizer ─────────────────────────────────────────────────────
+function normalizeSpeechText(text: string, lang: string): string {
+  if (!text) return text;
+  let t = text.trim();
+  if (lang.startsWith('en')) {
+    const numberWords: Record<string, string> = {
+      'zero':'0','one':'1','two':'2','three':'3','four':'4','five':'5',
+      'six':'6','seven':'7','eight':'8','nine':'9','ten':'10','eleven':'11',
+      'twelve':'12','thirteen':'13','fourteen':'14','fifteen':'15',
+      'sixteen':'16','seventeen':'17','eighteen':'18','nineteen':'19',
+      'twenty':'20','thirty':'30','forty':'40','fifty':'50',
+      'sixty':'60','seventy':'70','eighty':'80','ninety':'90','hundred':'100',
+    };
+    t = t.replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/gi,
+      (m) => numberWords[m.toLowerCase()] || m
+    );
+    // Blood group phonetic corrections
+    t = t.replace(/\b(hey|aay|aye)\s*(positive|negative|pos|neg|plus|minus)\b/gi, 'A $2');
+    t = t.replace(/\b(bee|be)\s*(positive|negative|pos|neg|plus|minus)\b/gi, 'B $2');
+    t = t.replace(/\b(oh|ow)\s*(positive|negative|pos|neg|plus|minus)\b/gi, 'O $2');
+    // Fix common gender mishearings: "mail" sounds identical to "male" for STT
+    // Only correct when NOT preceded by "e-" or "@" (to avoid fixing actual email addresses)
+    t = t.replace(/(?<![-@\w])(mail)(?!\s*\w*[@\.])\b/gi, 'male');
+    // "fee mail" / "fee male" → "female"
+    t = t.replace(/\b(fee\s*mail|fee\s*male|feemail|femail)\b/gi, 'female');
+    // Filler word removal
+    t = t.replace(/\b(um+|uh+|er+|ah+|hmm+|like i said|you know|i mean)\b[,]?\s*/gi, ' ');
+    // Join digits split by 'and'
+    t = t.replace(/(\d)\s+and\s+(\d)/gi, '$1$2');
+  }
+  return t.replace(/\s{2,}/g, ' ').trim();
+}
+
 type Language = 'en' | 'hi' | 'mr';
 type Field = keyof AutoFillResult;
 
@@ -69,8 +102,9 @@ const STEPS: Step[] = [
     hint: { en: '"Male"', hi: '"पुरुष"', mr: '"पुरुष"' },
     extract: (text) => {
       const tl = text.toLowerCase();
-      if (/\b(female|woman|lady|mahila|aurat|stri)\b|स्त्री|महिला/i.test(tl)) return 'Female';
-      if (/\b(male|man|purush|gents|boys?)\b|पुरुष/i.test(tl)) return 'Male';
+      // Note: "mail" is a very common STT mishearing of "male" — include it explicitly
+      if (/\b(female|woman|lady|mahila|aurat|stri|fee\s*m[ae][il]l?|fem)\b|स्त्री|महिला/i.test(tl)) return 'Female';
+      if (/\b(male|mail|man|purush|gents|boys?|m[ae][il]l?)\b|पुरुष/i.test(tl)) return 'Male';
       if (/\b(other|anya)\b|अन्य|इतर/i.test(tl)) return 'Other';
       return undefined;
     },
@@ -344,14 +378,17 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
     const recognition = new SR() as SpeechRecognition;
     recognition.continuous = false;   // Auto-stops after user pauses → instant submit
     recognition.interimResults = true;
-    // Use the correct locale based on current app language
+    // Use explicit regional locales for maximum accuracy
     const srLang = lang === 'hi' ? 'hi-IN' : lang === 'mr' ? 'mr-IN' : 'en-US';
     recognition.lang = srLang;
+    recognition.maxAlternatives = lang === 'en' ? 5 : 3; // More alternatives for English
     finalTranscriptRef.current = '';
 
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (e: any) => {
       let interim = '';
+      // Higher threshold for English where STT is more accurate and confident
+      const confThreshold = srLang.startsWith('en') ? 0.45 : 0.3;
       for (let i = e.resultIndex; i < e.results.length; i++) {
         if (e.results[i].isFinal) {
           let bestTranscript = e.results[i][0].transcript;
@@ -363,8 +400,8 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
               bestTranscript = alt.transcript;
             }
           }
-          if (bestConfidence === 0 || bestConfidence >= 0.3) {
-            finalTranscriptRef.current += bestTranscript;
+          if (bestConfidence === 0 || bestConfidence >= confThreshold) {
+            finalTranscriptRef.current += normalizeSpeechText(bestTranscript, srLang);
           }
         } else {
           interim += e.results[i][0].transcript;

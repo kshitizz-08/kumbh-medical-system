@@ -2,6 +2,62 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Mic, AlertCircle, X, Check, Edit3, RotateCcw } from 'lucide-react';
 import { useI18n } from '../i18n/i18n';
 
+// ─── English STT post-processor ──────────────────────────────────────────────
+// Fixes common speech-to-text transcription errors for English
+function normalizeSpeechText(text: string, lang: string): string {
+  if (!text) return text;
+  let t = text.trim();
+
+  // Only apply English-specific fixes for English language
+  if (lang.startsWith('en')) {
+    // Fix number words → digits (common STT substitution errors)
+    const numberWords: Record<string, string> = {
+      'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+      'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+      'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13',
+      'fourteen': '14', 'fifteen': '15', 'sixteen': '16', 'seventeen': '17',
+      'eighteen': '18', 'nineteen': '19', 'twenty': '20', 'thirty': '30',
+      'forty': '40', 'fifty': '50', 'sixty': '60', 'seventy': '70',
+      'eighty': '80', 'ninety': '90', 'hundred': '100',
+    };
+    // Replace standalone number words in numeric contexts (age, height, weight, phone)
+    t = t.replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/gi,
+      (m) => numberWords[m.toLowerCase()] || m
+    );
+
+    // Fix blood group letter phonetic mishearings
+    t = t.replace(/\b(hey|aay|aye)\s*(positive|negative|pos|neg|\+|-)\b/gi, 'A $2');
+    t = t.replace(/\b(bee|be)\s*(positive|negative|pos|neg|\+|-)\b/gi, 'B $2');
+    t = t.replace(/\b(oh|ow|0)\s*(positive|negative|pos|neg|\+|-)\b/gi, 'O $2');
+    t = t.replace(/\b(ab|a b)\s*(positive|negative|pos|neg|\+|-)\b/gi, 'AB $2');
+
+    // Fix gender mishearings: "mail" is phonetically identical to "male"
+    t = t.replace(/(?<![-@\w])(mail)(?!\s*\w*[@\.])\b/gi, 'male');
+    t = t.replace(/\b(fee\s*mail|fee\s*male|feemail|femail)\b/gi, 'female');
+
+    // Fix "positive" / "negative" shorthand heard as single words
+    t = t.replace(/\bpositive\b/gi, 'positive');
+    t = t.replace(/\bnegative\b/gi, 'negative');
+
+    // Remove filler words that commonly pollute STT output
+    t = t.replace(/\b(um+|uh+|er+|ah+|hmm+|like i said|you know|i mean)\b[,]?\s*/gi, ' ');
+
+    // Fix 'and' between digits that forms phone numbers (e.g. "nine eight seven and six" → "987 6")
+    t = t.replace(/(\d)\s+and\s+(\d)/gi, '$1$2');
+
+    // Normalize spacing around punctuation
+    t = t.replace(/\s+([,.!?])\s*/g, '$1 ');
+  }
+
+  // Universal: collapse multiple spaces
+  t = t.replace(/\s{2,}/g, ' ').trim();
+
+  // Capitalize first letter
+  if (t.length > 0) t = t.charAt(0).toUpperCase() + t.slice(1);
+
+  return t;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 interface SpeechRecognition extends EventTarget {
     continuous: boolean;
@@ -158,8 +214,9 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
         const rec = new SR() as SpeechRecognition;
         rec.continuous      = false;   // auto-stops on silence (Google style)
         rec.interimResults  = true;
-        rec.lang            = language;
-        rec.maxAlternatives = 3;
+        // Use explicit en-US for English — more accurate than generic 'en'
+        rec.lang            = language === 'en' ? 'en-US' : language;
+        rec.maxAlternatives = 5;  // Increased from 3 → more candidates for best-pick
         return rec;
     }, [language]);
 
@@ -177,6 +234,8 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
 
         rec.onresult = (e: any) => {
             let im = '';
+            // Adaptive confidence threshold: higher for English (cleaner signal)
+            const confThreshold = language.startsWith('en') ? 0.45 : 0.3;
             for (let i = e.resultIndex; i < e.results.length; i++) {
                 if (e.results[i].isFinal) {
                     let best = e.results[i][0].transcript;
@@ -185,7 +244,10 @@ export default function VoiceInput({ onTranscript, language = 'en-US', className
                         const a = e.results[i][j];
                         if ((a.confidence ?? 0) > bestConf) { bestConf = a.confidence; best = a.transcript; }
                     }
-                    if (bestConf === 0 || bestConf >= 0.3) finalRef.current += best;
+                    // Accept if: confidence unreported (browser doesn't report it) OR above threshold
+                    if (bestConf === 0 || bestConf >= confThreshold) {
+                        finalRef.current += normalizeSpeechText(best, language);
+                    }
                 } else {
                     im += e.results[i][0].transcript;
                 }

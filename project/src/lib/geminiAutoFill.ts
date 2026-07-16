@@ -47,29 +47,44 @@ const RESPONSE_SCHEMA: ResponseSchema = {
 // ─────────────────────────────────────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are a highly accurate medical data extraction engine for the Nashik Kumbh Mela Medical System.
 
-Your ONLY job: analyze the spoken text and extract EVERY piece of medical and personal information.
+Your ONLY job: analyze the spoken text — which was captured via a speech-to-text (STT) engine — and extract EVERY piece of medical and personal information.
 The text may be in English, Hindi, Marathi, or a MIX of all three (code-mixing is normal in India).
+
+CRITICAL: The input is SPOKEN text from a microphone, so:
+- Words may be transcribed phonetically, not correctly spelled (e.g. "aay positive" = "A positive", "bee negative" = "B negative", "oh positive" = "O positive").
+- Numbers may appear as words instead of digits ("fifty five" = 55, "nine eight seven six" = 9876).
+- Filler words may appear: um, uh, er, like, you know, so.
+- Punctuation is unreliable — do NOT depend on commas or periods.
+- The speaker may say "my blood is bee positive" meaning "B positive".
+- Phonetic letters: "aye" or "hey" = A, "bee" = B, "oh" or "owe" = O, "ay bee" or "aybee" = AB.
 
 RULES:
 1. Extract EVERY field that is mentioned, even partially.
 2. For unknown/missing fields, return null.
-3. Normalize phone numbers to digits only.
+3. Normalize phone numbers to digits only (10 digits for Indian numbers).
 4. Normalize gender to exactly "Male", "Female", or "Other".
 5. Normalize blood group to exactly one of: A+, A-, B+, B-, AB+, AB-, O+, O-.
+6. Convert spoken number-words to actual numbers (e.g. "fifty five" → 55).
+7. Correct obvious STT phonetic errors using medical/personal context.
+8. Remove filler words (um, uh, er, like) from extracted fields.
+9. For names: capitalize each word properly. Remove trailing words like "hai", "aahe", "is".
 
 EXTRACTION GUIDE (keywords to recognize across languages):
-- Name: "my name is", "naam hai", "मेरा नाम", "माझे नाव"
-- Age: "X years old", "X saal", "X varsh", "X वर्षे", "उमर X"
-- Gender: Male = "male/man/purush/पुरुष", Female = "female/woman/mahila/महिला/stri/स्त्री"
-- Phone: "phone/mobile/contact X", any 10-digit number
-- Blood Group: "A positive", "B negative", "raktgat", "रक्तगट", "rakt samuh"
+- Name: "my name is", "i am", "naam hai", "मेरा नाम", "माझे नाव", "call me", "patient name"
+- Age: "X years old", "X saal", "X varsh", "X वर्षे", "उमर X", "aged X", "I am X"
+- Gender: Male = "male/man/purush/पुरुष/gents/boy", Female = "female/woman/mahila/महिला/stri/स्त्री/lady"
+- IMPORTANT: "mail" or "mail mail" = Male (STT mishears "male" as "mail" constantly)
+- Phone: "phone/mobile/contact/number X", any 10-digit number, spoken digit sequences
+- Blood Group: "A/B/AB/O positive/negative", "aay pos", "bee neg", "raktgat", "रक्तगट", "rakt samuh"
+- Height: "height X cm", "X centimeters tall", "I am X cm", "uchi X", "X feet" (convert: feet×30.48)
+- Weight: "weight X kg", "X kilos", "X kilogram", "wajan X"
 - Conditions: "diabetes/sugar/मधुमेह", "BP/hypertension/उच्च रक्तदाब", "asthma/dama/दमा", "heart/हृदय", "thyroid/थायरॉईड", "kidney/किडनी"
-- Allergies: "dust/dhul/धूळ", "peanut/shengdana/मूंगफली", "milk/doodh", "penicillin"
-- Medications: "tablet/medicine/dawa/dawai/aushadh" + drug name (Metformin, Aspirin, Amlodipine, etc.)
-- Surgeries: "surgery/operation/shastrakraya" + description
-- Emergency contact: "emergency contact/sambandhi/relative" + name and phone
+- Allergies: "dust/dhul/धूळ", "peanut/shengdana/मूंगफली", "milk/doodh", "penicillin", "allergic to X"
+- Medications: "tablet/medicine/dawa/dawai/aushadh" + drug name, "taking X", "on X medication"
+- Surgeries: "surgery/operation/shastrakraya" + description, "had X done", "operated for X"
+- Emergency contact: "emergency contact/sambandhi/relative/family" + name and phone
 
-CRITICAL: A pilgrim at Kumbh Mela might need emergency care. Every detail matters.`;
+CRITICAL: A pilgrim at Kumbh Mela might need emergency care. Every detail matters. When in doubt, extract rather than omit.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Few-Shot examples — 5 realistic multilingual transcripts
@@ -253,39 +268,93 @@ function enhancedLocalParse(transcript: string): AutoFillResult {
   const t = transcript;
   const tl = transcript.toLowerCase();
 
+  // ── Pre-process: convert spoken number words to digits (for English STT) ──
+  const numberWords: Record<string, number> = {
+    'zero':0,'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,
+    'eight':8,'nine':9,'ten':10,'eleven':11,'twelve':12,'thirteen':13,
+    'fourteen':14,'fifteen':15,'sixteen':16,'seventeen':17,'eighteen':18,
+    'nineteen':19,'twenty':20,'thirty':30,'forty':40,'fifty':50,
+    'sixty':60,'seventy':70,'eighty':80,'ninety':90,'hundred':100,
+  };
+  const tNorm = tl.replace(
+    /\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/g,
+    (m) => String(numberWords[m] ?? m)
+  );
+
   // ── Full Name ──
   const namePat = [
-    /(?:my name is|i am|i'm|name is|naam hai|mera naam|maza nav|naam:?)\s+([A-Za-zÀ-ÿ][a-zA-ZÀ-ÿ\s]{1,35})(?:\s*[,.]|\s+(?:age|\d|and|ka|ki|che|ahe))/i,
+    /(?:my name is|i am|i'm|name is|naam hai|mera naam|maza nav|naam:?|call me|patient name\s*[:\-]?)\s+([A-Za-zÀ-ÿ][a-zA-ZÀ-ÿ\s]{1,35})(?:\s*[,.]|\s+(?:age|\d|and|ka|ki|che|ahe|i am|aged))/i,
     /(?:patient(?:'s)? name)\s*[:\-]?\s*([A-Z][a-zA-Z\s]{2,30})/i,
+    // English: "it's [Name]" or "this is [Name]"
+    /(?:it'?s|this is)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})\s*[,.]?/i,
   ];
   for (const pat of namePat) {
     const m = t.match(pat);
-    if (m) { result.full_name = m[1].trim(); break; }
+    if (m) {
+      let name = m[1].trim();
+      // Remove trailing honorifics or filler words
+      name = name.replace(/\s+(hai|aahe|ahe|is|here|speaking)$/i, '').trim();
+      result.full_name = name;
+      break;
+    }
   }
+  // Last resort: first capitalized word sequence at start of transcript
   if (!result.full_name) {
     const fw = t.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2})/);
-    if (fw) result.full_name = fw[1];
+    if (fw && fw[1].length > 2) result.full_name = fw[1];
   }
 
-  // ── Age ──
+  // ── Age ── (use normalized text for word-to-number conversion)
   const agePat = [
     /\b(\d{1,3})\s*(?:years?\s*old|yrs?\s*old|saal\s*ka|saal|varsh|वर्ष|साल|वय)\b/i,
-    /(?:age|umar|vay|ayu)\s*(?:is\s*|:?\s*)(\d{1,3})/i,
-    /\b(\d{1,3})\s*(?:year|year-old)\b/i,
+    /(?:age|umar|vay|ayu|aged)\s*(?:is\s*|:?\s*)(\d{1,3})/i,
+    /\b(\d{1,3})\s*(?:year|year-old|yo)\b/i,
+    // From normalized text (number words converted)
+    /\b(\d{1,3})\s*(?:years?\s*old|yrs?)\b/i,
   ];
   for (const pat of agePat) {
-    const m = t.match(pat);
+    const m = tNorm.match(pat);
     if (m) { result.age = parseInt(m[1]); break; }
   }
 
-  // ── Gender ──
-  if (/\b(female|woman|lady|aurat|mahila|स्त्री|महिला|stri)\b/i.test(tl)) result.gender = 'Female';
-  else if (/\b(male|man|purush|पुरुष|gents)\b/i.test(tl)) result.gender = 'Male';
+  // ── Gender ── (also use tNorm so "mail" pre-corrected to "male" is caught)
+  // "mail" is the most common STT mishearing for "male" — handled by normalization above
+  const tlNorm = tNorm; // already lowercased
+  if (/\b(female|woman|lady|aurat|mahila|स्त्री|महिला|stri|girl|she\/her|fee\s*m[ae]il?|femail)\b/i.test(tl)) result.gender = 'Female';
+  else if (/\b(male|mail|man|purush|पुरुष|gents|he\/him|m[ae]il)\b/i.test(tl) || /\b(male|mail|man)\b/i.test(tlNorm)) result.gender = 'Male';
+  else if (/\b(other|non.?binary|transgender|trans)\b/i.test(tl)) result.gender = 'Other';
 
-  // ── Phone ──
-  const phones = [...tl.matchAll(/\b(\d{10})\b/g)].map(m => m[1]);
+  // ── Phone ── (use normalized text so spoken digits "nine eight..." become numbers)
+  const phones = [...tNorm.matchAll(/\b(\d{10})\b/g)].map(m => m[1]);
+  if (!phones.length) {
+    // Also try original transcript for digit sequences
+    const rawPhones = [...tl.matchAll(/\b(\d{10})\b/g)].map(m => m[1]);
+    phones.push(...rawPhones);
+  }
   if (phones[0]) result.phone = phones[0];
   if (phones[1]) result.emergency_contact_phone = phones[1];
+
+  // ── Height ──
+  const heightPat = [
+    /\b(\d{2,3})\s*(?:cm|centimeter|centimetre)\b/i,
+    /\b(\d{1})\s*feet?\s*(\d{1,2})\s*(?:inch|in)?/i, // e.g. "5 feet 7 inches" -> 170
+  ];
+  for (const pat of heightPat) {
+    const mh = tNorm.match(pat) || t.match(pat);
+    if (mh) {
+      if (mh[2]) { // feet + inches
+        result.height_cm = Math.round(parseInt(mh[1]) * 30.48 + parseInt(mh[2]) * 2.54);
+      } else {
+        result.height_cm = parseInt(mh[1]);
+      }
+      break;
+    }
+  }
+
+  // ── Weight ──
+  const weightPat = /\b(\d{2,3})\s*(?:kg|kilo(?:gram)?s?|kilogram)\b/i;
+  const mw = tNorm.match(weightPat) || t.match(weightPat);
+  if (mw) result.weight_kg = parseInt(mw[1]);
 
   // ── Emergency Contact ──
   const ecPat = [

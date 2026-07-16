@@ -3,6 +3,38 @@ import { MicOff, Sparkles, AlertCircle, CheckCircle, Loader2, Square } from 'luc
 import { parseVoiceToFormData, AutoFillResult } from '../lib/geminiAutoFill';
 import { useI18n } from '../i18n/i18n';
 
+// ─── Shared English STT normalizer ────────────────────────────────────────────────
+function normalizeSpeechText(text: string, lang: string): string {
+  if (!text) return text;
+  let t = text.trim();
+  if (lang.startsWith('en')) {
+    const numberWords: Record<string, string> = {
+      'zero': '0', 'one': '1', 'two': '2', 'three': '3', 'four': '4',
+      'five': '5', 'six': '6', 'seven': '7', 'eight': '8', 'nine': '9',
+      'ten': '10', 'eleven': '11', 'twelve': '12', 'thirteen': '13',
+      'fourteen': '14', 'fifteen': '15', 'sixteen': '16', 'seventeen': '17',
+      'eighteen': '18', 'nineteen': '19', 'twenty': '20', 'thirty': '30',
+      'forty': '40', 'fifty': '50', 'sixty': '60', 'seventy': '70',
+      'eighty': '80', 'ninety': '90', 'hundred': '100',
+    };
+    t = t.replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)\b/gi,
+      (m) => numberWords[m.toLowerCase()] || m
+    );
+    // Fix blood group letter phonetic mishearings
+    t = t.replace(/\b(hey|aay|aye)\s*(positive|negative|pos|neg|plus|minus)\b/gi, 'A $2');
+    t = t.replace(/\b(bee|be)\s*(positive|negative|pos|neg|plus|minus)\b/gi, 'B $2');
+    t = t.replace(/\b(oh|ow)\s*(positive|negative|pos|neg|plus|minus)\b/gi, 'O $2');
+    // Fix gender mishearings: "mail" is phonetically identical to "male"
+    t = t.replace(/(?<![-@\w])(mail)(?!\s*\w*[@\.])\b/gi, 'male');
+    t = t.replace(/\b(fee\s*mail|fee\s*male|feemail|femail)\b/gi, 'female');
+    // Remove filler words
+    t = t.replace(/\b(um+|uh+|er+|ah+|hmm+|like i said|you know|i mean)\b[,]?\s*/gi, ' ');
+    // Join digits split by 'and'
+    t = t.replace(/(\d)\s+and\s+(\d)/gi, '$1$2');
+  }
+  return t.replace(/\s{2,}/g, ' ').trim();
+}
+
 interface SpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
@@ -94,8 +126,9 @@ export default function VoiceAutoFillButton({
     const recognition = new SpeechRecognitionClass() as SpeechRecognition;
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = language;
-    recognition.maxAlternatives = 3; // Allow browser to return multiple hypotheses
+    // Always use explicit locale for better accuracy; 'en' alone is less accurate than 'en-US'
+    recognition.lang = language === 'en' ? 'en-US' : language;
+    recognition.maxAlternatives = 5; // More candidates → higher chance of accurate best-pick
 
     finalTranscriptRef.current = '';
     setFinalText('');
@@ -108,6 +141,8 @@ export default function VoiceAutoFillButton({
 
     recognition.onresult = (event: any) => {
       let interim = '';
+      // Use higher threshold for English: STT is more reliable, noisy alternatives are rarer
+      const confThreshold = recognition.lang.startsWith('en') ? 0.45 : 0.35;
       for (let i = event.resultIndex; i < event.results.length; i++) {
         if (event.results[i].isFinal) {
           // Pick the highest-confidence alternative
@@ -120,9 +155,10 @@ export default function VoiceAutoFillButton({
               bestTranscript = alt.transcript;
             }
           }
-          // Accept if confidence is good or not reported
-          if (bestConfidence === 0 || bestConfidence >= 0.4) {
-            finalTranscriptRef.current += ' ' + bestTranscript;
+          // Accept if confidence is good or not reported (browser omits it on some platforms)
+          if (bestConfidence === 0 || bestConfidence >= confThreshold) {
+            const normalized = normalizeSpeechText(bestTranscript, recognition.lang);
+            finalTranscriptRef.current += ' ' + normalized;
             setFinalText(finalTranscriptRef.current.trim());
           }
         } else {
