@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
 import { searchDevotees, searchDevoteesByFace, Devotee, MedicalRecord } from '../lib/api';
-import { Search, Loader2, User, Camera } from 'lucide-react';
+import { Search, Loader2, User, Camera, QrCode } from 'lucide-react';
 import SelfieCapture from './SelfieCapture';
+import QRScanner from './QRScanner';
 import { useI18n } from '../i18n/i18n';
 
 type SearchResult = Devotee & { medical_records: MedicalRecord | null };
@@ -14,6 +15,7 @@ export default function SearchInterface({ onSelectDevotee }: { onSelectDevotee: 
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [showFaceSearch, setShowFaceSearch] = useState(false);
+  const [showQRScanner, setShowQRScanner] = useState(false);
 
   // Filter states
   const [genderFilter, setGenderFilter] = useState<'' | 'Male' | 'Female' | 'Other'>('');
@@ -78,6 +80,16 @@ export default function SearchInterface({ onSelectDevotee }: { onSelectDevotee: 
         >
           <Camera className="w-6 h-6" />
           {t('search.byFace')}
+        </button>
+
+        {/* Scan QR Code button */}
+        <button
+          type="button"
+          onClick={() => setShowQRScanner(true)}
+          className="w-full bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white text-lg font-semibold px-6 py-4 rounded-xl shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-3"
+        >
+          <QrCode className="w-6 h-6" />
+          Scan QR Code
         </button>
 
         <div className="relative">
@@ -285,6 +297,33 @@ export default function SearchInterface({ onSelectDevotee }: { onSelectDevotee: 
             }
           }}
           onClose={() => setShowFaceSearch(false)}
+        />
+      )}
+
+      {showQRScanner && (
+        <QRScanner
+          onScan={async (decodedText) => {
+            setShowQRScanner(false);
+            setSearchType('registration');
+            setSearchTerm(decodedText);
+            setLoading(true);
+            setSearched(true);
+            try {
+              const data = await searchDevotees(decodedText, 'registration');
+              setResults(
+                (data || []).map((devotee) => ({
+                  ...devotee,
+                  medical_records: devotee.medical_records,
+                }))
+              );
+            } catch (error) {
+              alert(`QR search failed: ${(error as Error).message}`);
+              setResults([]);
+            } finally {
+              setLoading(false);
+            }
+          }}
+          onClose={() => setShowQRScanner(false)}
         />
       )}
     </div>

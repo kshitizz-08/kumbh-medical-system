@@ -177,6 +177,45 @@ router.post('/search-by-face', async (req, res) => {
   }
 });
 
+// GET /api/devotees/stats - Live stats for home page (MUST be before /:id)
+router.get('/stats', async (req, res) => {
+  try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date();
+    todayEnd.setHours(23, 59, 59, 999);
+
+    const [total, incidentsToday, weatherRes] = await Promise.all([
+      Devotee.countDocuments(),
+      (async () => {
+        try {
+          const { MedicalIncident } = await import('../models/MedicalIncident.js');
+          return await MedicalIncident.countDocuments({
+            incident_date: { $gte: todayStart, $lte: todayEnd },
+          });
+        } catch { return 0; }
+      })(),
+      (async () => {
+        try {
+          const apiKey = process.env.OPENWEATHER_API_KEY;
+          if (!apiKey) return null;
+          const r = await fetch(
+            `https://api.openweathermap.org/data/2.5/weather?q=Nashik&appid=${apiKey}&units=metric`
+          );
+          if (!r.ok) return null;
+          const d = await r.json();
+          return { temperature: Math.round(d.main.temp), description: d.weather?.[0]?.description ?? '' };
+        } catch { return null; }
+      })(),
+    ]);
+
+    return res.json({ total, incidentsToday, weather: weatherRes });
+  } catch (error) {
+    console.error('Failed to fetch stats', error);
+    return res.status(500).json({ message: 'Failed to fetch stats', details: error.message });
+  }
+});
+
 // GET /api/devotees/:id - Get single devotee by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -265,4 +304,3 @@ router.put('/:id', async (req, res) => {
 });
 
 export default router;
-

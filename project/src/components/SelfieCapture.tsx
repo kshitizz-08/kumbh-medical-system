@@ -75,6 +75,7 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
       try {
         // Load Face-API models from CDN
         const sources = [
+          '/models/',
           'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/',
           'https://raw.githubusercontent.com/justadudewhohacks/face-api.js/master/weights/',
         ];
@@ -82,9 +83,9 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
         let faceModelsLoaded = false;
         for (const url of sources) {
           try {
+            // Load only needed nets (SSD Mobilenet v1 is heavy and not stored locally)
             await Promise.all([
-              faceapi.nets.tinyFaceDetector.loadFromUri(url),   // Fast — for real-time preview
-              faceapi.nets.ssdMobilenetv1.loadFromUri(url),     // Accurate — for photo capture
+              faceapi.nets.tinyFaceDetector.loadFromUri(url),   // Fast — for real-time preview & capture
               faceapi.nets.faceLandmark68Net.loadFromUri(url),
               faceapi.nets.faceRecognitionNet.loadFromUri(url),
               faceapi.nets.ageGenderNet.loadFromUri(url),       // Client-side age/gender pre-fill
@@ -264,11 +265,11 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
     };
 
     try {
-      // Use SSD MobileNet v1 for capture — significantly more accurate than TinyFaceDetector
+      // Use TinyFaceDetector for capture — fast and already loaded locally
       const detection = await faceapi
         .detectSingleFace(
           canvas,
-          new faceapi.SsdMobilenetv1Options({ minConfidence: 0.5 })
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 })
         )
         .withFaceLandmarks()
         .withFaceDescriptor();

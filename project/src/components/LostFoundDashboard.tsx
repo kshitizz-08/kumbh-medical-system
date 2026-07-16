@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react';
-import { CheckCircle, AlertTriangle, Phone } from 'lucide-react';
+import { CheckCircle, AlertTriangle, Phone, QrCode, Printer } from 'lucide-react';
 import SelfieCapture from './SelfieCapture';
 import { reportLostFound, matchFace, getLostFoundList, LostPerson } from '../lib/api';
 import { useI18n } from '../i18n/i18n';
+import QRCodeDisplay from './QRCodeDisplay';
+import { generateQRDataURL, printQRWristband } from '../utils/qrUtils';
 
 export default function LostFoundDashboard() {
     const { t } = useI18n();
-    const [view, setView] = useState<'home' | 'report' | 'found' | 'list'>('home');
+    const [view, setView] = useState<'home' | 'report' | 'found' | 'list' | 'wristband'>('home');
     const [recentMissing, setRecentMissing] = useState<LostPerson[]>([]);
     const [showCamera, setShowCamera] = useState(false);
     const [scanMode, setScanMode] = useState<'report' | 'match'>('report');
+    const [submittedCase, setSubmittedCase] = useState<{ id: string; name: string; age?: number; gender?: string; photoUrl?: string; emergency?: string } | null>(null);
+    const [wristbandQR, setWristbandQR] = useState<string | null>(null);
 
     // Form state for reporting
     const [formData, setFormData] = useState<Partial<LostPerson>>({
@@ -72,13 +76,23 @@ export default function LostFoundDashboard() {
     const submitReport = async () => {
         setIsSubmitting(true);
         try {
-            await reportLostFound({
+            const response = await reportLostFound({
                 ...formData,
                 // Ensure descriptor is present
                 face_descriptor: formData.face_descriptor
             });
-            alert('Report submitted successfully');
-            setView('home');
+            // Transition to wristband view with the submitted data
+            const caseId = (response as any)?._id || (response as any)?.id || `CASE-${Date.now()}`;
+            setSubmittedCase({
+                id: caseId,
+                name: formData.name || 'Unknown',
+                age: formData.age,
+                gender: formData.gender,
+                photoUrl: formData.photo_url,
+                emergency: formData.contact_info?.phone ? `${formData.contact_info?.name || ''} ${formData.contact_info?.phone}`.trim() : undefined,
+            });
+            setWristbandQR(null);
+            setView('wristband');
             loadRecent();
         } catch (e: any) {
             console.error(e);
@@ -101,6 +115,80 @@ export default function LostFoundDashboard() {
                     </button>
                 )}
             </header>
+
+            {/* QR Wristband View — shown after successful report */}
+            {view === 'wristband' && submittedCase && (
+                <div className="space-y-6">
+                    <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-6 text-center">
+                        <div className="w-14 h-14 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                            <CheckCircle className="w-8 h-8 text-white" />
+                        </div>
+                        <h2 className="text-xl font-bold text-green-900 mb-1">Report Submitted!</h2>
+                        <p className="text-green-700 text-sm">Case ID: <span className="font-mono font-bold">{submittedCase.id}</span></p>
+                    </div>
+
+                    <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
+                        <div className="flex items-center gap-2 mb-4">
+                            <QrCode className="w-5 h-5 text-indigo-600" />
+                            <h3 className="text-lg font-bold text-gray-900">QR Wristband</h3>
+                        </div>
+                        <p className="text-sm text-gray-500 mb-5">
+                            Generate a printable QR wristband for <strong>{submittedCase.name}</strong>. Attach it to the missing person so medical staff can quickly identify them by scanning.
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row items-center gap-6">
+                            <div className="flex-shrink-0">
+                                <QRCodeDisplay
+                                    value={JSON.stringify({ caseId: submittedCase.id, name: submittedCase.name, status: 'missing' })}
+                                    size={170}
+                                    label={`Case: ${submittedCase.id}`}
+                                    downloadable
+                                    downloadFilename={`wristband-${submittedCase.id}`}
+                                    onQRReady={setWristbandQR}
+                                />
+                            </div>
+                            <div className="flex-1 space-y-3">
+                                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm space-y-1">
+                                    <div className="font-bold text-red-900 text-base">{submittedCase.name}</div>
+                                    {submittedCase.age && <div className="text-red-700">Age: {submittedCase.age}</div>}
+                                    {submittedCase.gender && <div className="text-red-700">Gender: {submittedCase.gender}</div>}
+                                    {submittedCase.emergency && (
+                                        <div className="text-red-700 font-medium">📞 {submittedCase.emergency}</div>
+                                    )}
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        const qrURL = wristbandQR || await generateQRDataURL(
+                                            JSON.stringify({ caseId: submittedCase.id, name: submittedCase.name, status: 'missing' })
+                                        );
+                                        printQRWristband({
+                                            name: submittedCase.name,
+                                            caseId: submittedCase.id,
+                                            age: submittedCase.age,
+                                            gender: submittedCase.gender,
+                                            emergencyContact: submittedCase.emergency,
+                                            photoUrl: submittedCase.photoUrl,
+                                            qrDataURL: qrURL,
+                                        });
+                                    }}
+                                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white px-4 py-3 rounded-xl font-semibold transition-all shadow-md hover:shadow-lg text-sm"
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    Print QR Wristband
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setView('home'); setSubmittedCase(null); }}
+                                    className="w-full text-center text-gray-500 hover:text-gray-700 text-sm py-2 transition-colors"
+                                >
+                                    Done — Back to Home
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {view === 'home' && (
                 <div className="space-y-8">

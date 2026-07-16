@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { Users, Activity, AlertTriangle, TrendingUp, Loader2, MapPin } from 'lucide-react';
+import { Users, Activity, AlertTriangle, TrendingUp, Loader2 } from 'lucide-react';
 import { useI18n } from '../i18n/i18n';
-import LiveHeatmap from './LiveHeatmap';
+
 
 interface AnalyticsData {
     totalDevotees: number;
@@ -135,14 +135,7 @@ export default function AnalyticsDashboard() {
                 />
             </div>
 
-            {/* Live Heatmap Section */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex items-center gap-2 mb-4">
-                    <MapPin className="w-5 h-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold text-gray-800">Live Medical Incident Heatmap</h3>
-                </div>
-                <LiveHeatmap />
-            </div>
+
 
             {/* Charts Section 1: Demographics */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

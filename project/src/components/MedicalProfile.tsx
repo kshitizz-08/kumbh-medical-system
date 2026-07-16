@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { MedicalIncident, getIncidents, DevoteeWithRecord } from '../lib/api';
-import { X, AlertCircle, User, Heart, Activity, FileText, Clock, Edit, ArrowLeft } from 'lucide-react';
+import { X, AlertCircle, User, Heart, Activity, FileText, Clock, Edit, ArrowLeft, QrCode, Printer, ChevronDown, ChevronUp } from 'lucide-react';
 import RegistrationForm from './RegistrationForm';
 import { useI18n } from '../i18n/i18n';
+import QRCodeDisplay from './QRCodeDisplay';
+import { generateQRDataURL, printKumbhPass } from '../utils/qrUtils';
 
 type ProfileProps = {
   devotee: DevoteeWithRecord;
@@ -17,6 +19,8 @@ export default function MedicalProfile({ devotee, refreshToken, onClose, onRecor
   const [incidents, setIncidents] = useState<MedicalIncident[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [qrDataURL, setQrDataURL] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -35,6 +39,22 @@ export default function MedicalProfile({ devotee, refreshToken, onClose, onRecor
   };
 
   const medicalRecord = devotee.medical_records;
+
+  const handlePrintIDCard = useCallback(async () => {
+    const qrURL = qrDataURL || await generateQRDataURL(devotee.registration_number);
+    printKumbhPass({
+      name: devotee.full_name,
+      registrationNumber: devotee.registration_number,
+      age: devotee.age,
+      gender: devotee.gender,
+      bloodGroup: medicalRecord?.blood_group ?? undefined,
+      phone: devotee.phone,
+      emergencyContact: devotee.emergency_contact_name,
+      emergencyPhone: devotee.emergency_contact_phone,
+      photoUrl: devotee.photo_url ?? undefined,
+      qrDataURL: qrURL,
+    });
+  }, [devotee, medicalRecord, qrDataURL]);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -111,6 +131,57 @@ export default function MedicalProfile({ devotee, refreshToken, onClose, onRecor
           </div>
         ) : (
           <div className="p-6 space-y-6">
+
+            {/* QR Badge Section */}
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowQR((v) => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 hover:bg-indigo-100/50 transition-colors"
+              >
+                <span className="flex items-center gap-2 font-semibold text-indigo-800">
+                  <QrCode className="w-4 h-4" />
+                  QR Badge &amp; ID Card
+                </span>
+                {showQR ? (
+                  <ChevronUp className="w-4 h-4 text-indigo-500" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-indigo-500" />
+                )}
+              </button>
+
+              {showQR && (
+                <div className="px-4 pb-4 flex flex-col sm:flex-row items-center gap-6">
+                  <div className="flex flex-col items-center gap-3">
+                    <QRCodeDisplay
+                      value={devotee.registration_number}
+                      size={160}
+                      label={devotee.registration_number}
+                      downloadable
+                      downloadFilename={`qr-badge-${devotee.registration_number}`}
+                      onQRReady={setQrDataURL}
+                    />
+                  </div>
+                  <div className="flex-1 space-y-2 text-center sm:text-left">
+                    <p className="text-sm text-indigo-700 font-medium">
+                      Scan this QR to instantly pull up this devotee's full medical profile.
+                    </p>
+                    <p className="text-xs text-indigo-500">
+                      Encodes: <span className="font-mono font-bold">{devotee.registration_number}</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handlePrintIDCard}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm hover:shadow"
+                    >
+                      <Printer className="w-4 h-4" />
+                      Print ID Card
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="bg-red-50 border border-red-200 rounded-lg p-4">
               <h3 className="font-semibold text-red-900 mb-2 flex items-center gap-2">
                 <AlertCircle className="w-5 h-5" />

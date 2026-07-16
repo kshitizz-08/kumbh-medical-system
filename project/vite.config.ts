@@ -28,7 +28,8 @@ export default defineConfig({
         ],
       },
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,json,onnx,wasm}'],
+        maximumFileSizeToCacheInBytes: 30 * 1024 * 1024, // 30MB to support YOLO onnx model & 26MB ONNX runtime WASM file
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,
@@ -49,20 +50,17 @@ export default defineConfig({
     exclude: ['lucide-react'],
     include: ['react', 'react-dom'],
   },
+  esbuild: {
+    drop: ['console', 'debugger'],
+  },
   build: {
-    target: 'es2015',
-    minify: 'terser',
-    terserOptions: {
-      compress: {
-        drop_console: true,
-        drop_debugger: true,
-      },
-    },
+    target: 'es2022',
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom'],
-          'face-api': ['face-api.js'], // Includes TinyFaceDetector + SSD MobileNet v1
+          'face-api': ['face-api.js'], // Includes TinyFaceDetector
           'lucide-icons': ['lucide-react'],
         },
       },

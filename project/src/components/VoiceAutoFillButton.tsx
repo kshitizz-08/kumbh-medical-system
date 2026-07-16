@@ -95,6 +95,7 @@ export default function VoiceAutoFillButton({
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = language;
+    recognition.maxAlternatives = 3; // Allow browser to return multiple hypotheses
 
     finalTranscriptRef.current = '';
     setFinalText('');
@@ -108,19 +109,36 @@ export default function VoiceAutoFillButton({
     recognition.onresult = (event: any) => {
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscriptRef.current += ' ' + transcript;
-          setFinalText(finalTranscriptRef.current.trim());
+          // Pick the highest-confidence alternative
+          let bestTranscript = event.results[i][0].transcript;
+          let bestConfidence = event.results[i][0].confidence || 0;
+          for (let j = 1; j < event.results[i].length; j++) {
+            const alt = event.results[i][j];
+            if ((alt.confidence || 0) > bestConfidence) {
+              bestConfidence = alt.confidence;
+              bestTranscript = alt.transcript;
+            }
+          }
+          // Accept if confidence is good or not reported
+          if (bestConfidence === 0 || bestConfidence >= 0.4) {
+            finalTranscriptRef.current += ' ' + bestTranscript;
+            setFinalText(finalTranscriptRef.current.trim());
+          }
         } else {
-          interim += transcript;
+          interim += event.results[i][0].transcript;
         }
       }
       setInterimText(interim);
     };
 
     recognition.onerror = (event: any) => {
-      if (event.error === 'aborted' || event.error === 'no-speech') return;
+      if (event.error === 'aborted') return;
+      if (event.error === 'no-speech') {
+        // Restart on no-speech so user gets another chance
+        try { recognition.start(); } catch (_) { /* already running */ }
+        return;
+      }
       console.warn('[VoiceAutoFill] Recognition error:', event.error);
       // Don't stop on network/audio errors — just log and continue
       if (event.error === 'network') return;

@@ -344,8 +344,9 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
     const recognition = new SR() as SpeechRecognition;
     recognition.continuous = false;   // Auto-stops after user pauses → instant submit
     recognition.interimResults = true;
-    recognition.lang = language;
-    recognition.maxAlternatives = 3;
+    // Use the correct locale based on current app language
+    const srLang = lang === 'hi' ? 'hi-IN' : lang === 'mr' ? 'mr-IN' : 'en-US';
+    recognition.lang = srLang;
     finalTranscriptRef.current = '';
 
     recognition.onstart = () => setIsListening(true);
@@ -399,10 +400,12 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
     const question = step.question[lang];
     addAIMessage(question);
     scrollToBottom();
-    // Cancel any lingering TTS, then speak new question AND start mic simultaneously
+    // Cancel any lingering TTS, speak the question, then start mic AFTER speaking finishes
     window.speechSynthesis?.cancel();
-    speak(question);           // fire-and-forget – don't wait for onend
-    setTimeout(startListening, 80); // mic starts right away, overlapping TTS
+    speak(question, () => {
+      // Start mic only after AI finishes speaking — prevents mic picking up TTS
+      setTimeout(startListening, 200);
+    });
   }, [lang, addAIMessage, speak, startListening]);
 
   // Initialize and load voices
@@ -448,15 +451,17 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
       setTimeout(() => askStep(next), 120);
       
     } else {
-      // Regex failed to parse (e.g. didn't hear a number), or tried to skip a required field
+      // Regex failed to parse — show error and restart mic
       const errorMsg: Record<Language, string> = {
         en: "Sorry, I didn't catch that. Please provide a valid answer.",
         hi: "माफ़ करें, मैं समझ नहीं पाया। कृपया सही उत्तर दें।",
         mr: "क्षमस्व, मला समजले नाही. कृपया योग्य उत्तर द्या."
       };
       addAIMessage(errorMsg[lang]);
-      speak(errorMsg[lang]);
-      setTimeout(startListening, 100); // restart mic quickly
+      // Speak error then restart mic automatically
+      speak(errorMsg[lang], () => {
+        setTimeout(startListening, 200);
+      });
     }
   }, [stepIndex, lang, addAIMessage, addUserMessage, onAutoFill, askStep, speak, startListening]);
 
@@ -604,6 +609,27 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
                 💬 {currentStep.hint[lang]}
               </p>
             )}
+            {/* Listening status banner */}
+            {isListening && (
+              <div className="flex items-center justify-center gap-2 py-1.5 px-3 rounded-xl bg-red-500/20 border border-red-400/30">
+                <span className="flex gap-0.5 items-end h-3">
+                  {[40, 80, 55, 95, 65].map((h, i) => (
+                    <span key={i} className="w-1 bg-red-400 rounded-full animate-bounce"
+                      style={{ height: `${h}%`, animationDelay: `${i * 130}ms` }} />
+                  ))}
+                </span>
+                <span className="text-red-300 text-xs font-semibold">
+                  {lang === 'mr' ? '🎤 ऐकत आहे...' : lang === 'hi' ? '🎤 सुन रहा हूँ...' : '🎤 Listening...'}
+                </span>
+                <span className="flex gap-0.5 items-end h-3">
+                  {[65, 95, 55, 80, 40].map((h, i) => (
+                    <span key={i} className="w-1 bg-red-400 rounded-full animate-bounce"
+                      style={{ height: `${h}%`, animationDelay: `${i * 130}ms` }} />
+                  ))}
+                </span>
+              </div>
+            )}
+
             {/* Buttons row */}
             <div className="flex gap-2">
               {/* Skip */}
@@ -622,24 +648,26 @@ export default function ConversationalFill({ onAutoFill, onClose, language = 'en
               <button
                 type="button"
                 onClick={isListening ? stopListening : startListening}
-                className={`flex-shrink-0 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-sm transition-all ${
                   isListening
-                    ? 'bg-red-500 hover:bg-red-600 text-white animate-pulse'
+                    ? 'bg-red-500 hover:bg-red-600 text-white'
                     : 'bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white shadow-lg shadow-purple-900/50'
                 }`}
               >
                 {isListening ? (
                   <>
                     <MicOff className="w-5 h-5" />
-                    <span className="flex gap-0.5 items-end h-4">
-                      {[40, 80, 55, 95, 65].map((h, i) => (
-                        <span key={i} className="w-1 bg-white rounded-full animate-bounce"
-                          style={{ height: `${h}%`, animationDelay: `${i * 130}ms` }} />
-                      ))}
+                    <span>
+                      {lang === 'mr' ? 'थांबवा' : lang === 'hi' ? 'रोकें' : 'Stop'}
                     </span>
                   </>
                 ) : (
-                  <Mic className="w-5 h-5" />
+                  <>
+                    <Mic className="w-5 h-5" />
+                    <span>
+                      {lang === 'mr' ? 'बोलण्यासाठी टॅप करा' : lang === 'hi' ? 'बोलने के लिए टैप करें' : 'Tap to speak'}
+                    </span>
+                  </>
                 )}
               </button>
             </div>
