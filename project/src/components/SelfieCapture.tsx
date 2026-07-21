@@ -172,57 +172,65 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
 
     if (!ctx) return;
 
+    // Track if inference is already running to avoid backpressure on slow devices
+    let inferenceRunning = false;
+    // Track last known dimensions to avoid resizing canvas every frame (CLS fix)
+    let lastW = 0, lastH = 0;
+
     const detectFaces = async () => {
-      if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      // Skip frame if previous inference hasn't finished — prevents main-thread backpressure (INP fix)
+      if (inferenceRunning) return;
+      if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+
+      inferenceRunning = true;
+      try {
+        // Only resize canvas when video dimensions actually change — avoids CLS-causing reflows
+        if (video.videoWidth !== lastW || video.videoHeight !== lastH) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          lastW = video.videoWidth;
+          lastH = video.videoHeight;
+        }
 
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        try {
-          // Preprocess and run YOLO inference
-          const tensorData = preprocessImage(canvas);
-          const inputTensor = new ort.Tensor('float32', tensorData, [1, 3, 640, 640]);
-          
-          // Use dynamically grabbed input name (usually 'images')
-          const feeds: Record<string, ort.Tensor> = {};
-          feeds[yoloSession.inputNames[0]] = inputTensor;
-          
-          const results = await yoloSession.run(feeds);
-          
-          // Use dynamically grabbed output name (usually 'output0')
-          const outputTensor = results[yoloSession.outputNames[0]];
-          
-          // Post-process to bounding boxes
-          const boxes = postprocessTensor(outputTensor, canvas.width, canvas.height);
+        // Preprocess and run YOLO inference
+        const tensorData = preprocessImage(canvas);
+        const inputTensor = new ort.Tensor('float32', tensorData, [1, 3, 640, 640]);
 
-          // Clear and redraw
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const feeds: Record<string, ort.Tensor> = {};
+        feeds[yoloSession.inputNames[0]] = inputTensor;
 
-          // Draw YOLO face detection boxes
-          boxes.forEach((box) => {
-            ctx.strokeStyle = '#00ff00';
-            ctx.lineWidth = 2;
-            ctx.strokeRect(box.x, box.y, box.width, box.height);
-          });
+        const results = await yoloSession.run(feeds);
+        const outputTensor = results[yoloSession.outputNames[0]];
+        const boxes = postprocessTensor(outputTensor, canvas.width, canvas.height);
 
-          // Validate
-          if (boxes.length === 0) {
-            setValidationStatus({ isValid: false, message: t('selfie.noFace') });
-          } else if (boxes.length > 1) {
-            setValidationStatus({ isValid: false, message: t('selfie.multiFace') });
-          } else {
-            setValidationStatus({ isValid: true, message: t('selfie.ready') });
-          }
-        } catch (error) {
-          console.error("YOLO inference error:", error);
+        // Redraw video frame then overlay detection boxes
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        boxes.forEach((box) => {
+          ctx.strokeStyle = '#00ff00';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(box.x, box.y, box.width, box.height);
+        });
+
+        if (boxes.length === 0) {
+          setValidationStatus({ isValid: false, message: t('selfie.noFace') });
+        } else if (boxes.length > 1) {
+          setValidationStatus({ isValid: false, message: t('selfie.multiFace') });
+        } else {
+          setValidationStatus({ isValid: true, message: t('selfie.ready') });
         }
+      } catch (error) {
+        console.error("YOLO inference error:", error);
+      } finally {
+        inferenceRunning = false;
       }
     };
 
-    // Run detection every 200ms
-    detectionIntervalRef.current = window.setInterval(detectFaces, 200);
+    // 350ms interval: frees main thread more between frames → better INP (was 200ms)
+    detectionIntervalRef.current = window.setInterval(detectFaces, 350);
 
     return () => {
       if (detectionIntervalRef.current) {
@@ -420,8 +428,8 @@ export default function SelfieCapture({ onCapture, onClose }: SelfieCaptureProps
                 <img src={capturedImage} alt="Captured selfie" className="w-full h-auto object-cover" />
               </div>
 
-              {/* Manual Edit Form */}
-              <div className="flex-1 bg-blue-50 p-4 rounded-lg space-y-3 relative">
+              {/* Manual Edit Form — fixed min-height prevents CLS when AI results load */}
+              <div className="flex-1 bg-blue-50 p-4 rounded-lg space-y-3 relative" style={{ minHeight: '220px' }}>
                 <h3 className="font-semibold text-gray-900 flex items-center gap-2">
                   <Info className="w-4 h-4 text-blue-600" />
                   AI Estimate (Adjust if needed)
